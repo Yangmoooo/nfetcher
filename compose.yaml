@@ -18,7 +18,7 @@ services:
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       RUN_MODE: daemon
-      SCHEDULE_CRON: "${SCHEDULE_CRON:-0 18 * * *}"
+      SCHEDULE_CRON: "${SCHEDULE_CRON:-30 17 * * *}"
       LIBRARY_DIR: /library/nhentai-popular
       RETENTION_DAYS: "${RETENTION_DAYS:-7}"
       SEARCH_QUERY: language:chinese

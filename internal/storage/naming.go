@@ -15,11 +15,11 @@ var invalidChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]+`)
 var multiSpace = regexp.MustCompile(`\s+`)
 
 func ChooseTitle(gallery nhentai.Gallery) string {
-	if strings.TrimSpace(gallery.Title.English) != "" {
-		return gallery.Title.English
-	}
 	if strings.TrimSpace(gallery.Title.Japanese) != "" {
 		return gallery.Title.Japanese
+	}
+	if strings.TrimSpace(gallery.Title.English) != "" {
+		return gallery.Title.English
 	}
 	return strconv.FormatInt(gallery.ID, 10)
 }

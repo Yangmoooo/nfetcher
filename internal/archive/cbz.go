@@ -2,13 +2,19 @@ package archive
 
 import (
 	"archive/zip"
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 )
 
-func WriteCBZ(srcDir, dstPath string) error {
+type ExtraFile struct {
+	Name string
+	Data []byte
+}
+
+func WriteCBZ(srcDir, dstPath string, extraFiles []ExtraFile) error {
 	entries, err := os.ReadDir(srcDir)
 	if err != nil {
 		return err
@@ -52,6 +58,23 @@ func WriteCBZ(srcDir, dstPath string) error {
 		}
 
 		if err := src.Close(); err != nil {
+			_ = zipWriter.Close()
+			return err
+		}
+	}
+
+	sort.Slice(extraFiles, func(left, right int) bool {
+		return extraFiles[left].Name < extraFiles[right].Name
+	})
+
+	for _, extraFile := range extraFiles {
+		writer, err := zipWriter.Create(extraFile.Name)
+		if err != nil {
+			_ = zipWriter.Close()
+			return err
+		}
+
+		if _, err := io.Copy(writer, bytes.NewReader(extraFile.Data)); err != nil {
 			_ = zipWriter.Close()
 			return err
 		}

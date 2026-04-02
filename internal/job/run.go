@@ -11,6 +11,7 @@ import (
 
 	"nfetcher/internal/archive"
 	"nfetcher/internal/config"
+	"nfetcher/internal/metadata"
 	"nfetcher/internal/nhentai"
 	"nfetcher/internal/storage"
 )
@@ -39,14 +40,16 @@ func (r *Runner) Run(ctx context.Context) error {
 	}
 
 	ids := make([]int64, 0, len(searchResult.Result))
+	searchRanks := make(map[int64]int, len(searchResult.Result))
 	for _, item := range searchResult.Result {
 		ids = append(ids, item.ID)
+		searchRanks[item.ID] = len(ids)
 	}
 
 	r.logger().Printf("search results count=%d", len(ids))
 
 	var runErrors []error
-	galleries := make([]nhentai.Gallery, 0, len(ids))
+	galleries := make([]QueuedGallery, 0, len(ids))
 	scheduledGalleryIDs := make(map[int64]struct{}, len(ids))
 	for result := range FetchDetails(ctx, r.Client, ids, r.Config.DetailConcurrency) {
 		if result.Err != nil {
@@ -67,13 +70,16 @@ func (r *Runner) Run(ctx context.Context) error {
 		}
 
 		scheduledGalleryIDs[result.Gallery.ID] = struct{}{}
-		galleries = append(galleries, result.Gallery)
+		galleries = append(galleries, QueuedGallery{
+			Gallery: result.Gallery,
+			Rank:    searchRanks[result.Gallery.ID],
+		})
 	}
 
-	SortGalleriesByPageCountDesc(galleries)
+	SortQueuedGalleriesByPageCountDesc(galleries)
 	if len(galleries) > 0 {
-		smallestPages := len(galleries[len(galleries)-1].Pages)
-		largestPages := len(galleries[0].Pages)
+		smallestPages := len(galleries[len(galleries)-1].Gallery.Pages)
+		largestPages := len(galleries[0].Gallery.Pages)
 		r.logger().Printf(
 			"gallery queue count=%d gallery_concurrency=%d page_concurrency=%d order=pages-desc largest_pages=%d smallest_pages=%d",
 			len(galleries),
@@ -84,16 +90,16 @@ func (r *Runner) Run(ctx context.Context) error {
 		)
 	}
 
-	for result := range ProcessGalleries(ctx, galleries, r.Config.GalleryConcurrency, func(workerCtx context.Context, gallery nhentai.Gallery) error {
+	for result := range ProcessGalleries(ctx, galleries, r.Config.GalleryConcurrency, func(workerCtx context.Context, gallery QueuedGallery) error {
 		return r.processGallery(workerCtx, now, gallery)
 	}) {
 		if result.Err != nil {
-			runErrors = append(runErrors, fmt.Errorf("process gallery %d: %w", result.Gallery.ID, result.Err))
-			r.logger().Printf("gallery archive failed gallery_id=%d error=%v", result.Gallery.ID, result.Err)
+			runErrors = append(runErrors, fmt.Errorf("process gallery %d: %w", result.QueuedGallery.Gallery.ID, result.Err))
+			r.logger().Printf("gallery archive failed gallery_id=%d error=%v", result.QueuedGallery.Gallery.ID, result.Err)
 			continue
 		}
 
-		existingGalleryPaths[result.Gallery.ID] = storage.FinalGalleryPath(r.Config.LibraryDir, now, storage.GalleryFileName(result.Gallery))
+		existingGalleryPaths[result.QueuedGallery.Gallery.ID] = storage.FinalGalleryPath(r.Config.LibraryDir, now, storage.GalleryFileName(result.QueuedGallery.Gallery))
 	}
 
 	removedDirs, err := CleanupOldDirs(r.Config.LibraryDir, now, r.Config.RetentionDays)
@@ -113,7 +119,8 @@ func (r *Runner) Run(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) processGallery(ctx context.Context, now time.Time, gallery nhentai.Gallery) error {
+func (r *Runner) processGallery(ctx context.Context, now time.Time, queued QueuedGallery) error {
+	gallery := queued.Gallery
 	finalPath := storage.FinalGalleryPath(r.Config.LibraryDir, now, storage.GalleryFileName(gallery))
 	if _, err := os.Stat(finalPath); err == nil {
 		r.logger().Printf("skip existing gallery_id=%d path=%s", gallery.ID, finalPath)
@@ -138,7 +145,14 @@ func (r *Runner) processGallery(ctx context.Context, now time.Time, gallery nhen
 	}
 	defer os.Remove(tempPath)
 
-	if err := archive.WriteCBZ(stageDir, tempPath); err != nil {
+	comicInfo, err := metadata.MarshalComicInfo(metadata.BuildComicInfo(gallery, queued.Rank))
+	if err != nil {
+		return err
+	}
+
+	if err := archive.WriteCBZ(stageDir, tempPath, []archive.ExtraFile{
+		{Name: "ComicInfo.xml", Data: comicInfo},
+	}); err != nil {
 		return err
 	}
 

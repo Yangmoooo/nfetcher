@@ -19,9 +19,14 @@ type GalleryResult struct {
 	Err     error
 }
 
-type GalleryProcessResult struct {
+type QueuedGallery struct {
 	Gallery nhentai.Gallery
-	Err     error
+	Rank    int
+}
+
+type GalleryProcessResult struct {
+	QueuedGallery QueuedGallery
+	Err           error
 }
 
 func FetchDetails(ctx context.Context, client *nhentai.Client, ids []int64, workers int) <-chan GalleryResult {
@@ -63,19 +68,19 @@ func FetchDetails(ctx context.Context, client *nhentai.Client, ids []int64, work
 	return results
 }
 
-func SortGalleriesByPageCountDesc(galleries []nhentai.Gallery) {
+func SortQueuedGalleriesByPageCountDesc(galleries []QueuedGallery) {
 	sort.Slice(galleries, func(i, j int) bool {
-		leftPages := len(galleries[i].Pages)
-		rightPages := len(galleries[j].Pages)
+		leftPages := len(galleries[i].Gallery.Pages)
+		rightPages := len(galleries[j].Gallery.Pages)
 		if leftPages != rightPages {
 			return leftPages > rightPages
 		}
-		return galleries[i].ID < galleries[j].ID
+		return galleries[i].Gallery.ID < galleries[j].Gallery.ID
 	})
 }
 
-func ProcessGalleries(ctx context.Context, galleries []nhentai.Gallery, workers int, process func(context.Context, nhentai.Gallery) error) <-chan GalleryProcessResult {
-	jobs := make(chan nhentai.Gallery)
+func ProcessGalleries(ctx context.Context, galleries []QueuedGallery, workers int, process func(context.Context, QueuedGallery) error) <-chan GalleryProcessResult {
+	jobs := make(chan QueuedGallery)
 	results := make(chan GalleryProcessResult)
 
 	var workersWG sync.WaitGroup
@@ -88,7 +93,7 @@ func ProcessGalleries(ctx context.Context, galleries []nhentai.Gallery, workers 
 				select {
 				case <-ctx.Done():
 					return
-				case results <- GalleryProcessResult{Gallery: gallery, Err: err}:
+				case results <- GalleryProcessResult{QueuedGallery: gallery, Err: err}:
 				}
 			}
 		}()

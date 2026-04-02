@@ -18,7 +18,7 @@
 ## 当前默认行为
 
 - 时区：`Asia/Shanghai`
-- 调度时间：每天 `18:00`
+- 调度时间：每天 `17:30`
 - 搜索条件：`language:chinese`
 - 排序方式：`popular-today`
 - 抓取页码：第 `1` 页
@@ -30,6 +30,7 @@
 - 保留天数：`7`
 - 跨日期全局去重：同一 `gallery_id` 只保留一份归档
 - 下载调度：按页数降序，优先启动大本以缩短总完工时间
+- 每个 `.cbz` 会额外写入一个轻量级 `ComicInfo.xml`
 
 源码目录里，常改项可以可选写进 `.env`，示例见 `.env.example`；其余默认值已经直接写在 `compose.yaml`。
 
@@ -169,7 +170,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       RUN_MODE: daemon
-      SCHEDULE_CRON: "0 18 * * *"
+      SCHEDULE_CRON: "30 17 * * *"
       LIBRARY_DIR: /library/nhentai-popular
       RETENTION_DAYS: "7"
       SEARCH_QUERY: language:chinese
@@ -419,7 +420,7 @@ docker compose down
 
 - `TZ=Asia/Shanghai`
 - `NFETCHER_USER=1000:1000`
-- `SCHEDULE_CRON=0 18 * * *`
+- `SCHEDULE_CRON=30 17 * * *`
 - `RETENTION_DAYS=7`
 - `GALLERY_CONCURRENCY=3`
 - `DETAIL_CONCURRENCY=5`
@@ -443,14 +444,28 @@ docker compose down
 
 标题优先级：
 
-1. `title.english`
-2. `title.japanese`
+1. `title.japanese`
+2. `title.english`
 3. `gallery_id`
 
 文件名规则：
 
-- 有标题：`<title> - <gallery-id>.cbz`
+- 有标题：`<preferred-title> - <gallery-id>.cbz`
 - 无标题：`<gallery-id>.cbz`
+
+`gallery_id` 会继续保留在文件名中，用于全局去重、人工排查和回溯 nhentai 页面。
+
+## `ComicInfo.xml`
+
+每个 `.cbz` 里都会额外包含一个轻量级 `ComicInfo.xml`，当前只写这些字段：
+
+- `Title`：按 `title.japanese -> title.english -> gallery_id` 回退
+- `Number`：当天榜单排名
+- `Web`：`https://nhentai.net/g/<gallery_id>/`
+- `Tags`：直接使用 nhentai 返回的 `tags[].name`
+- `AgeRating`：固定写 `18`
+
+为了避免干扰 `Komga` 对日期目录的聚合结果，当前不会写 `Series`、`Volume`、作者角色或其他 series 级字段。
 
 ## 当前已验证内容
 
