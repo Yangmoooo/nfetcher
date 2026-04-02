@@ -1,0 +1,29 @@
+services:
+  nfetcher:
+    image: local/nfetcher:latest
+    container_name: nfetcher
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      TZ: Asia/Shanghai
+      RUN_MODE: daemon
+      SCHEDULE_CRON: "0 18 * * *"
+      LIBRARY_DIR: /library/nhentai-popular
+      RETENTION_DAYS: "7"
+      SEARCH_QUERY: language:chinese
+      SEARCH_SORT: popular-today
+      SEARCH_PAGE: "1"
+      GALLERY_CONCURRENCY: "3"
+      DETAIL_CONCURRENCY: "5"
+      PAGE_CONCURRENCY: "4"
+      REQUEST_RPS: "4"
+      REQUEST_BURST: "8"
+      HTTP_TIMEOUT: 30s
+      RETRY_MAX: "3"
+      HTTP_PROXY: http://host.docker.internal:17890
+      HTTPS_PROXY: http://host.docker.internal:17890
+      NO_PROXY: ""
+    volumes:
+      - /srv/public/KomgaLibrary/nhentai:/library/nhentai-popular
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
