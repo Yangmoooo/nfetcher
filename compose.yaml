@@ -1,43 +1,31 @@
 services:
   nfetcher:
-    build:
-      context: .
-      extra_hosts:
-        - "host.docker.internal:host-gateway"
-      args:
-        HTTP_PROXY: ${BUILD_HTTP_PROXY:-}
-        HTTPS_PROXY: ${BUILD_HTTPS_PROXY:-}
-        NO_PROXY: ${BUILD_NO_PROXY:-}
-        GOPROXY: ${BUILD_GOPROXY:-https://goproxy.cn,direct}
-        GOSUMDB: ${BUILD_GOSUMDB:-sum.golang.google.cn}
-        APT_DEBIAN_MIRROR: ${BUILD_APT_DEBIAN_MIRROR:-https://mirrors.tuna.tsinghua.edu.cn/debian}
-        APT_SECURITY_MIRROR: ${BUILD_APT_SECURITY_MIRROR:-https://mirrors.tuna.tsinghua.edu.cn/debian-security}
+    image: local/nfetcher:latest
     container_name: nfetcher
     restart: unless-stopped
-    user: "${NFETCHER_USER:-1000:1000}"
+    user: 1000:1000
     environment:
-      TZ: ${TZ:-Asia/Shanghai}
+      TZ: Asia/Shanghai
       RUN_MODE: daemon
-      SCHEDULE_CRON: "${SCHEDULE_CRON:-30 17 * * *}"
-      LIBRARY_DIR: /library/nhentai-popular
-      RETENTION_DAYS: "${RETENTION_DAYS:-7}"
+      SCHEDULE_CRON: 30 17 * * *
+      RETENTION_DAYS: 7
       SEARCH_QUERY: language:chinese
       SEARCH_SORT: popular-today
-      SEARCH_PAGE: "1"
-      GALLERY_CONCURRENCY: "${GALLERY_CONCURRENCY:-3}"
-      DETAIL_CONCURRENCY: "${DETAIL_CONCURRENCY:-5}"
-      PAGE_CONCURRENCY: "${PAGE_CONCURRENCY:-4}"
-      REQUEST_RPS: "${REQUEST_RPS:-4}"
-      REQUEST_BURST: "${REQUEST_BURST:-8}"
-      HTTP_TIMEOUT: 30s
-      RETRY_MAX: "3"
-      HTTP_PROXY: ${HTTP_PROXY:-}
-      HTTPS_PROXY: ${HTTPS_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-}
-      BARK_BASE_URL: ${BARK_BASE_URL:-}
-      BARK_DEVICE_KEY: ${BARK_DEVICE_KEY:-}
-      BARK_SOUND: ${BARK_SOUND:-paymentsuccess}
+      SEARCH_PAGE: 1
+      GALLERY_CONCURRENCY: 5
+      DETAIL_CONCURRENCY: 5
+      PAGE_CONCURRENCY: 6
+      REQUEST_RPS: 8
+      REQUEST_BURST: 16
+      HTTP_TIMEOUT: 60s
+      RETRY_MAX: 3
+      HTTP_PROXY: http://host.docker.internal:17890
+      HTTPS_PROXY: http://host.docker.internal:17890
+      NO_PROXY: ""
+      BARK_BASE_URL: ""
+      BARK_DEVICE_KEY: ""
+      BARK_SOUND: paymentsuccess
     volumes:
-      - ./library/nhentai:/library/nhentai-popular
+      - ./library/nhentai/_oneshots:/nhentai-popular
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - host.docker.internal:host-gateway
