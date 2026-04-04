@@ -31,6 +31,11 @@
 docker build -t local/nfetcher:latest .
 ```
 
+默认构建会：
+
+- 以 `linux/amd64` 为目标架构构建二进制
+- 默认使用中国 Go 模块镜像与 Debian APT 镜像源
+
 如果构建阶段需要代理，可以直接传 build arg，例如：
 
 ```bash
@@ -39,6 +44,8 @@ docker build \
   --build-arg HTTPS_PROXY=http://127.0.0.1:17890 \
   -t local/nfetcher:latest .
 ```
+
+其余参数同理。
 
 ### 2. 先跑一次 `dry-run`
 
