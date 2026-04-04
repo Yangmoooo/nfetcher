@@ -82,7 +82,7 @@ func formatBarkBody(result summary.Result) string {
 	lines := []string{
 		fmt.Sprintf("Status: %s", result.Status()),
 		fmt.Sprintf("Mode: %s", result.Mode),
-		fmt.Sprintf("Date: %s", result.Date),
+		fmt.Sprintf("At: %s", result.StartedAtText()),
 		"",
 		fmt.Sprintf("Search | Dup | Queue: %d | %d | %d", result.SearchResults, result.Duplicates, result.Queued),
 	}

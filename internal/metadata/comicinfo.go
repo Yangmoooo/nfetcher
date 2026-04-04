@@ -10,24 +10,27 @@ import (
 	"nfetcher/internal/storage"
 )
 
-const adultsOnlyAgeRating = "18"
+const adultsOnlyAgeRating = "Adults Only 18+"
 
 type ComicInfo struct {
-	XMLName   xml.Name `xml:"ComicInfo"`
-	Title     string   `xml:"Title,omitempty"`
-	Number    string   `xml:"Number,omitempty"`
-	Web       string   `xml:"Web,omitempty"`
-	Tags      string   `xml:"Tags,omitempty"`
-	AgeRating string   `xml:"AgeRating,omitempty"`
+	XMLName        xml.Name `xml:"ComicInfo"`
+	Series         string   `xml:"Series,omitempty"`
+	StoryArc       string   `xml:"StoryArc,omitempty"`
+	StoryArcNumber string   `xml:"StoryArcNumber,omitempty"`
+	Web            string   `xml:"Web,omitempty"`
+	Tags           string   `xml:"Tags,omitempty"`
+	AgeRating      string   `xml:"AgeRating,omitempty"`
 }
 
-func BuildComicInfo(gallery nhentai.Gallery, rank int) ComicInfo {
+func BuildComicInfo(gallery nhentai.Gallery, storyArc string, rank int) ComicInfo {
+	title := storage.ChooseTitle(gallery)
 	return ComicInfo{
-		Title:     storage.ChooseTitle(gallery),
-		Number:    strconv.Itoa(rank),
-		Web:       fmt.Sprintf("https://nhentai.net/g/%d/", gallery.ID),
-		Tags:      joinTagNames(gallery.Tags),
-		AgeRating: adultsOnlyAgeRating,
+		Series:         title,
+		StoryArc:       storyArc,
+		StoryArcNumber: strconv.Itoa(rank),
+		Web:            fmt.Sprintf("https://nhentai.net/g/%d/", gallery.ID),
+		Tags:           joinTagNames(gallery.Tags),
+		AgeRating:      adultsOnlyAgeRating,
 	}
 }
 

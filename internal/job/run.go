@@ -33,18 +33,19 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 	now := r.now()
 	day := now.Format("2006-01-02")
 	runSummary := summary.Result{
-		Mode:  r.mode(),
-		Date:  day,
-		Query: r.Config.SearchQuery,
-		Sort:  r.Config.SearchSort,
-		Page:  r.Config.SearchPage,
+		Mode:      r.mode(),
+		Date:      day,
+		StartedAt: now,
+		Query:     r.Config.SearchQuery,
+		Sort:      r.Config.SearchSort,
+		Page:      r.Config.SearchPage,
 	}
 	defer func() {
 		runSummary.Duration = time.Since(startedAt)
 		r.finalizeRun(ctx, runSummary)
 	}()
 
-	r.logger().Printf("job start date=%s query=%q sort=%q page=%d", day, r.Config.SearchQuery, r.Config.SearchSort, r.Config.SearchPage)
+	r.logger().Printf("job start date=%s at=%q query=%q sort=%q page=%d", day, runSummary.StartedAtText(), r.Config.SearchQuery, r.Config.SearchSort, r.Config.SearchPage)
 
 	plan, err := r.BuildPlan(ctx, PlanOptions{Log: true})
 	if err != nil {
@@ -89,13 +90,15 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 		return
 	}
 
-	r.logger().Printf("job finish date=%s galleries=%d queued=%d", day, plan.SearchResultsCount, len(plan.Queued))
+	r.logger().Printf("job finish date=%s at=%q galleries=%d queued=%d", day, runSummary.StartedAtText(), plan.SearchResultsCount, len(plan.Queued))
 	return
 }
 
 func (r *Runner) processGallery(ctx context.Context, now time.Time, queued QueuedGallery) error {
 	gallery := queued.Gallery
-	finalPath := storage.FinalGalleryPath(r.Config.LibraryDir, now, storage.GalleryFileName(gallery))
+	fileName := storage.GalleryFileName(gallery)
+	dirName := storage.GalleryDirName(gallery)
+	finalPath := storage.FinalGalleryPath(r.Config.LibraryDir, now, dirName, fileName)
 	if _, err := os.Stat(finalPath); err == nil {
 		r.logger().Printf("skip existing gallery_id=%d path=%s", gallery.ID, finalPath)
 		return nil
@@ -119,7 +122,7 @@ func (r *Runner) processGallery(ctx context.Context, now time.Time, queued Queue
 	}
 	defer os.Remove(tempPath)
 
-	comicInfo, err := metadata.MarshalComicInfo(metadata.BuildComicInfo(gallery, queued.Rank))
+	comicInfo, err := metadata.MarshalComicInfo(metadata.BuildComicInfo(gallery, now.Format("2006-01-02"), queued.Rank))
 	if err != nil {
 		return err
 	}

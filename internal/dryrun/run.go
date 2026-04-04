@@ -26,18 +26,19 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 	now := e.now()
 	day := now.Format("2006-01-02")
 	result := summary.Result{
-		Mode:  e.mode(),
-		Date:  day,
-		Query: e.Config.SearchQuery,
-		Sort:  e.Config.SearchSort,
-		Page:  e.Config.SearchPage,
+		Mode:      e.mode(),
+		Date:      day,
+		StartedAt: now,
+		Query:     e.Config.SearchQuery,
+		Sort:      e.Config.SearchSort,
+		Page:      e.Config.SearchPage,
 	}
 	defer func() {
 		result.Duration = time.Since(startedAt)
 		e.finalizeRun(ctx, result)
 	}()
 
-	e.logger().Printf("dry-run start date=%s query=%q sort=%q page=%d", day, e.Config.SearchQuery, e.Config.SearchSort, e.Config.SearchPage)
+	e.logger().Printf("dry-run start date=%s at=%q query=%q sort=%q page=%d", day, result.StartedAtText(), e.Config.SearchQuery, e.Config.SearchSort, e.Config.SearchPage)
 
 	report := RunPreflight(e.Config)
 	result.PreflightWarnings = report.WarningCount()
@@ -59,8 +60,9 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 	result.FailedGalleryIDs = append(result.FailedGalleryIDs, plan.DetailFailedIDs...)
 
 	e.logger().Printf(
-		"plan summary date=%s query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d detail_errors=%d",
+		"plan summary date=%s at=%q query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d detail_errors=%d",
 		day,
+		result.StartedAtText(),
 		e.Config.SearchQuery,
 		e.Config.SearchSort,
 		e.Config.SearchPage,
@@ -96,7 +98,7 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 		e.logger().Printf("plan detail_error error=%v", planErr)
 	}
 
-	e.logger().Printf("dry-run finish date=%s queued=%d duplicates=%d", day, len(plan.Queued), len(plan.Duplicates))
+	e.logger().Printf("dry-run finish date=%s at=%q queued=%d duplicates=%d", day, result.StartedAtText(), len(plan.Queued), len(plan.Duplicates))
 
 	result.ErrorCount = report.FailureCount() + len(plan.Errors)
 	runErr = errors.Join(report.Failure(), errors.Join(plan.Errors...))

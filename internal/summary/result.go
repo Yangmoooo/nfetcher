@@ -16,9 +16,12 @@ const (
 	StatusFail    Status = "fail"
 )
 
+const startedAtLayout = "2006-01-02 15:04:05 MST"
+
 type Result struct {
 	Mode              string
 	Date              string
+	StartedAt         time.Time
 	Query             string
 	Sort              string
 	Page              int
@@ -63,6 +66,13 @@ func (r Result) DurationText() string {
 	}
 }
 
+func (r Result) StartedAtText() string {
+	if r.StartedAt.IsZero() {
+		return "-"
+	}
+	return r.StartedAt.Format(startedAtLayout)
+}
+
 func (r Result) FailedGalleryIDsText(limit int) string {
 	ids := uniqueSortedIDs(r.FailedGalleryIDs)
 	if len(ids) == 0 {
@@ -87,10 +97,11 @@ func (r Result) FailedGalleryIDsText(limit int) string {
 
 func (r Result) LogLine() string {
 	return fmt.Sprintf(
-		"summary status=%s mode=%s date=%s query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d archived_ok=%d archived_failed=%d detail_errors=%d removed_dirs=%d preflight_warnings=%d preflight_failures=%d error_count=%d duration=%s failed_gallery_ids=%q",
+		"summary status=%s mode=%s date=%s at=%q query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d archived_ok=%d archived_failed=%d detail_errors=%d removed_dirs=%d preflight_warnings=%d preflight_failures=%d error_count=%d duration=%s failed_gallery_ids=%q",
 		r.Status(),
 		r.Mode,
 		r.Date,
+		r.StartedAtText(),
 		r.Query,
 		r.Sort,
 		r.Page,

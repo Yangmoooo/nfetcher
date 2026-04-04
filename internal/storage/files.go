@@ -13,8 +13,12 @@ func DateDir(root string, now time.Time) string {
 	return filepath.Join(root, now.Format("2006-01-02"))
 }
 
-func FinalGalleryPath(root string, now time.Time, fileName string) string {
-	return filepath.Join(DateDir(root, now), fileName)
+func FinalGalleryDir(root string, now time.Time, dirName string) string {
+	return filepath.Join(DateDir(root, now), dirName)
+}
+
+func FinalGalleryPath(root string, now time.Time, dirName, fileName string) string {
+	return filepath.Join(FinalGalleryDir(root, now, dirName), fileName)
 }
 
 func StageDir(now time.Time, galleryID int64) string {
