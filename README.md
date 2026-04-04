@@ -1,13 +1,12 @@
 # nfetcher
 
-一个用 Go 编写的 `nhentai` 抓取器
+一个用 Go 编写的 `nhentai` 抓取器，用来配合本地部署的 `Komga`：
 
 - 每天定时抓取
 - 条件为 `language:chinese + popular-today + page=1`
 - 每本漫画保存为一个 `.cbz`
-- 按日期目录归档
-- 只保留最近 `7` 天的数据
-- 用来配合本地部署的 `Kavita`
+- 默认写入 `Komga` 常见的 `_oneshots` 目录
+- 默认只保留最近 `7` 天的数据
 
 ## 默认行为
 
@@ -19,44 +18,29 @@
 - 保留天数：`7`
 - 全局去重：同一 `gallery_id` 只保留一份归档
 - 输出格式：`.cbz`，并附带基础 `ComicInfo.xml`
-
-仓库内已经提供两套配置：
-
-- `compose.yaml`：适合在源码目录里直接构建、调试和运行
-- `deploy/compose.example.yaml`：适合把运行用的 `compose` 放到单独的 Docker 管理目录
+- `StoryArc`：`nhentai-popular | YYYY-MM-DD`
+- `StoryArcNumber`：当天榜单排名
 
 ## 快速开始
 
-### 1. 可选：复制本地覆盖配置
+### 1. 构建镜像
 
-如果你想改抓取时间、运行用户、代理或 Bark，可以先复制：
-
-```bash
-cp .env.example .env
-```
-
-不复制也可以直接运行；`compose.yaml` 已经带了默认值。
-
-常改项主要是：
-
-- `NFETCHER_USER`
-- `SCHEDULE_CRON`
-- `RETENTION_DAYS`
-- `BUILD_HTTP_PROXY` / `BUILD_HTTPS_PROXY`
-- `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`
-- `BARK_BASE_URL` / `BARK_DEVICE_KEY` / `BARK_SOUND`
-
-### 2. 构建镜像
-
-在源码目录执行：
+在项目根目录执行：
 
 ```bash
 docker build -t local/nfetcher:latest .
 ```
 
-### 3. 先跑一次 `dry-run`
+如果构建阶段需要代理，可以直接传 build arg，例如：
 
-第一次建议先预检和预览待抓队列：
+```bash
+docker build \
+  --build-arg HTTP_PROXY=http://127.0.0.1:17890 \
+  --build-arg HTTPS_PROXY=http://127.0.0.1:17890 \
+  -t local/nfetcher:latest .
+```
+
+### 2. 先跑一次 `dry-run`
 
 ```bash
 docker compose run --rm nfetcher dry-run
@@ -69,13 +53,13 @@ docker compose run --rm nfetcher dry-run
 - 计算去重结果和本次待抓队列
 - 不实际下载图片，也不会写入 `.cbz`
 
-### 4. 手动实际抓取一次
+### 3. 手动实际抓取一次
 
 ```bash
 docker compose run --rm nfetcher run-once
 ```
 
-### 5. 常驻运行
+### 4. 常驻运行
 
 ```bash
 docker compose up -d
@@ -84,34 +68,12 @@ docker compose logs -f nfetcher
 
 默认 `RUN_MODE=daemon`，会按 `SCHEDULE_CRON` 定时执行。
 
-## 独立部署
+`Komga` 侧建议这样配：
 
-如果你想把运行用的 `compose` 放到另一个 Docker 管理目录，推荐这样做：
+- 库根目录指向上层目录，例如 `./library/nhentai`
+- 在库设置里启用 One-Shots 目录，并填写 `_oneshots`
 
-1. 在源码目录构建镜像
-2. 复制 `deploy/compose.example.yaml` 到部署目录
-3. 在部署目录修改挂载路径、代理、Bark 和运行用户
-4. 在部署目录执行 `docker compose up -d`
-
-示例：
-
-```bash
-cd /srv/src/nfetcher
-docker build -t local/nfetcher:latest .
-
-mkdir -p /srv/docker/nfetcher
-cp deploy/compose.example.yaml /srv/docker/nfetcher/compose.yaml
-
-cd /srv/docker/nfetcher
-docker compose up -d
-```
-
-`deploy/compose.example.yaml` 默认就是：
-
-- `image: local/nfetcher:latest`
-- `user: 1000:1000`
-- 运行代理地址：`http://host.docker.internal:17890`
-- 库目录挂载：`./library/nhentai:/library/nhentai-popular`
+如果没有启用 One-Shots 处理，`Komga` 会把同一目录下的多个 `.cbz` 当成一个普通系列导入。
 
 ## 代理与 Bark
 
@@ -122,20 +84,6 @@ docker compose up -d
 ```text
 http://host.docker.internal:17890
 ```
-
-构建阶段用：
-
-- `BUILD_HTTP_PROXY`
-- `BUILD_HTTPS_PROXY`
-- `BUILD_NO_PROXY`
-
-运行阶段用：
-
-- `HTTP_PROXY`
-- `HTTPS_PROXY`
-- `NO_PROXY`
-
-仓库里的 `compose.yaml` 和 `deploy/compose.example.yaml` 都已经包含：
 
 ```yaml
 extra_hosts:
@@ -161,27 +109,29 @@ BARK_SOUND=paymentsuccess
 
 默认容器内目录：
 
-- `/library/nhentai-popular`
+- `/nhentai-popular`
 
-源码目录 `compose.yaml` 默认映射到宿主机：
+根目录 `compose.yaml` 默认映射到宿主机：
 
-- `./library/nhentai`
+- `./library/nhentai/_oneshots`
 
 生成后的实际结构类似：
 
 ```text
-./library/nhentai/2026-04-04/<title> - <gallery-id>/<title> - <gallery-id>.cbz
+./library/nhentai/_oneshots/<title> - <gallery-id>.cbz
 ```
 
 如果标题不可用，会回退成：
 
 ```text
-./library/nhentai/2026-04-04/<gallery-id>/<gallery-id>.cbz
+./library/nhentai/_oneshots/<gallery-id>.cbz
 ```
 
 补充说明：
 
-- 文件名和目录名都会保留 `gallery_id`
+- 文件名会保留 `gallery_id`
 - 同一 `gallery_id` 在整个库里只会保留一份
-- 每个 `.cbz` 都会写入基础 `ComicInfo.xml`，供 `Kavita` 读取
-
+- 每个 `.cbz` 都会写入基础 `ComicInfo.xml`
+- `Title` 使用首选标题，不再写入 `Series`
+- `StoryArc` 使用 `nhentai-popular | YYYY-MM-DD`
+- 去重和 retention 都直接扫描现有 `.cbz`，不依赖额外状态文件
