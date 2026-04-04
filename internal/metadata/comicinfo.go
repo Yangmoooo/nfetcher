@@ -14,7 +14,7 @@ const adultsOnlyAgeRating = "Adults Only 18+"
 
 type ComicInfo struct {
 	XMLName        xml.Name `xml:"ComicInfo"`
-	Series         string   `xml:"Series,omitempty"`
+	Title          string   `xml:"Title,omitempty"`
 	StoryArc       string   `xml:"StoryArc,omitempty"`
 	StoryArcNumber string   `xml:"StoryArcNumber,omitempty"`
 	Web            string   `xml:"Web,omitempty"`
@@ -25,7 +25,7 @@ type ComicInfo struct {
 func BuildComicInfo(gallery nhentai.Gallery, storyArc string, rank int) ComicInfo {
 	title := storage.ChooseTitle(gallery)
 	return ComicInfo{
-		Series:         title,
+		Title:          title,
 		StoryArc:       storyArc,
 		StoryArcNumber: strconv.Itoa(rank),
 		Web:            fmt.Sprintf("https://nhentai.net/g/%d/", gallery.ID),

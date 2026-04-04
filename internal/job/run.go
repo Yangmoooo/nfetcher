@@ -32,6 +32,7 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 	startedAt := time.Now()
 	now := r.now()
 	day := now.Format("2006-01-02")
+	storyArc := formatStoryArc(day)
 	runSummary := summary.Result{
 		Mode:      r.mode(),
 		Date:      day,
@@ -47,7 +48,17 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 
 	r.logger().Printf("job start date=%s at=%q query=%q sort=%q page=%d", day, runSummary.StartedAtText(), r.Config.SearchQuery, r.Config.SearchSort, r.Config.SearchPage)
 
-	plan, err := r.BuildPlan(ctx, PlanOptions{Log: true})
+	index, err := storage.ScanLibraryIndex(config.LibraryDirPath)
+	if err != nil {
+		runSummary.ErrorCount = 1
+		runErr = fmt.Errorf("scan library index: %w", err)
+		return
+	}
+
+	plan, err := r.BuildPlan(ctx, PlanOptions{
+		Log:                  true,
+		ExistingGalleryPaths: index.ExistingGalleryPaths(),
+	})
 	if err != nil {
 		runSummary.ErrorCount = 1
 		runErr = err
@@ -61,7 +72,7 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 
 	runErrors := append([]error(nil), plan.Errors...)
 	for processResult := range ProcessGalleries(ctx, plan.Queued, r.Config.GalleryConcurrency, func(workerCtx context.Context, gallery QueuedGallery) error {
-		return r.processGallery(workerCtx, now, gallery)
+		return r.processGallery(workerCtx, now, storyArc, gallery)
 	}) {
 		if processResult.Err != nil {
 			runErrors = append(runErrors, fmt.Errorf("process gallery %d: %w", processResult.QueuedGallery.Gallery.ID, processResult.Err))
@@ -72,15 +83,21 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 		}
 
 		runSummary.ArchivedOK++
+		finalPath := storage.FinalGalleryPath(config.LibraryDirPath, storage.GalleryFileName(processResult.QueuedGallery.Gallery))
+		index.Archives = append(index.Archives, storage.LibraryArchive{
+			Path:        finalPath,
+			GalleryID:   processResult.QueuedGallery.Gallery.ID,
+			FetchedDate: day,
+		})
 	}
 
-	removedDirs, err := CleanupOldDirs(r.Config.LibraryDir, now, r.Config.RetentionDays)
+	removedFiles, err := CleanupExpired(&index, now, r.Config.RetentionDays)
 	if err != nil {
-		runErrors = append(runErrors, fmt.Errorf("cleanup old directories: %w", err))
+		runErrors = append(runErrors, fmt.Errorf("cleanup expired archives: %w", err))
 	} else {
-		runSummary.RemovedDirs = len(removedDirs)
-		for _, removedDir := range removedDirs {
-			r.logger().Printf("retention remove dir=%s", removedDir)
+		runSummary.RemovedFiles = len(removedFiles)
+		for _, removedFile := range removedFiles {
+			r.logger().Printf("retention remove path=%s", removedFile)
 		}
 	}
 
@@ -94,11 +111,10 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 	return
 }
 
-func (r *Runner) processGallery(ctx context.Context, now time.Time, queued QueuedGallery) error {
+func (r *Runner) processGallery(ctx context.Context, now time.Time, storyArc string, queued QueuedGallery) error {
 	gallery := queued.Gallery
 	fileName := storage.GalleryFileName(gallery)
-	dirName := storage.GalleryDirName(gallery)
-	finalPath := storage.FinalGalleryPath(r.Config.LibraryDir, now, dirName, fileName)
+	finalPath := storage.FinalGalleryPath(config.LibraryDirPath, fileName)
 	if _, err := os.Stat(finalPath); err == nil {
 		r.logger().Printf("skip existing gallery_id=%d path=%s", gallery.ID, finalPath)
 		return nil
@@ -122,7 +138,7 @@ func (r *Runner) processGallery(ctx context.Context, now time.Time, queued Queue
 	}
 	defer os.Remove(tempPath)
 
-	comicInfo, err := metadata.MarshalComicInfo(metadata.BuildComicInfo(gallery, now.Format("2006-01-02"), queued.Rank))
+	comicInfo, err := metadata.MarshalComicInfo(metadata.BuildComicInfo(gallery, storyArc, queued.Rank))
 	if err != nil {
 		return err
 	}
@@ -170,4 +186,8 @@ func (r *Runner) finalizeRun(ctx context.Context, result summary.Result) {
 	if err := r.Notifier.Send(ctx, result); err != nil {
 		r.logger().Printf("notify bark failed error=%v", err)
 	}
+}
+
+func formatStoryArc(day string) string {
+	return "nhentai-popular | " + day
 }

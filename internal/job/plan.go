@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"nfetcher/internal/config"
 	"nfetcher/internal/storage"
 )
 
@@ -21,13 +22,18 @@ type PlanResult struct {
 }
 
 type PlanOptions struct {
-	Log bool
+	Log                  bool
+	ExistingGalleryPaths map[int64]string
 }
 
 func (r *Runner) BuildPlan(ctx context.Context, options PlanOptions) (PlanResult, error) {
-	existingGalleryPaths, err := storage.ExistingGalleryPaths(r.Config.LibraryDir)
-	if err != nil {
-		return PlanResult{}, fmt.Errorf("scan existing library: %w", err)
+	existingGalleryPaths := options.ExistingGalleryPaths
+	if existingGalleryPaths == nil {
+		var err error
+		existingGalleryPaths, err = storage.ExistingGalleryPaths(config.LibraryDirPath)
+		if err != nil {
+			return PlanResult{}, fmt.Errorf("scan existing library: %w", err)
+		}
 	}
 
 	searchResult, err := r.Client.Search(ctx, r.Config.SearchQuery, r.Config.SearchSort, r.Config.SearchPage)

@@ -13,7 +13,6 @@ type Config struct {
 	RunMode            string
 	ScheduleCron       string
 	Timezone           string
-	LibraryDir         string
 	RetentionDays      int
 	SearchQuery        string
 	SearchSort         string
@@ -30,12 +29,13 @@ type Config struct {
 	BarkSound          string
 }
 
+const LibraryDirPath = "/nhentai-popular"
+
 func Load() (Config, error) {
 	cfg := Config{
 		RunMode:            getenv("RUN_MODE", "daemon"),
 		ScheduleCron:       getenv("SCHEDULE_CRON", "30 17 * * *"),
 		Timezone:           getenv("TZ", "Asia/Shanghai"),
-		LibraryDir:         getenv("LIBRARY_DIR", "/library/nhentai-popular"),
 		RetentionDays:      getenvInt("RETENTION_DAYS", 7),
 		SearchQuery:        getenv("SEARCH_QUERY", "language:chinese"),
 		SearchSort:         getenv("SEARCH_SORT", "popular-today"),

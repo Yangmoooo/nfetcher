@@ -47,7 +47,17 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 		e.logger().Printf("preflight status=%s check=%s detail=%q", check.Status, check.Name, check.Detail)
 	}
 
-	plan, err := e.Runner.BuildPlan(ctx, job.PlanOptions{Log: false})
+	index, err := storage.ScanLibraryIndex(config.LibraryDirPath)
+	if err != nil {
+		result.ErrorCount = report.FailureCount() + 1
+		runErr = errors.Join(report.Failure(), err)
+		return
+	}
+
+	plan, err := e.Runner.BuildPlan(ctx, job.PlanOptions{
+		Log:                  false,
+		ExistingGalleryPaths: index.ExistingGalleryPaths(),
+	})
 	if err != nil {
 		result.ErrorCount = report.FailureCount() + 1
 		runErr = errors.Join(report.Failure(), err)

@@ -17,8 +17,8 @@ func FinalGalleryDir(root string, now time.Time, dirName string) string {
 	return filepath.Join(DateDir(root, now), dirName)
 }
 
-func FinalGalleryPath(root string, now time.Time, dirName, fileName string) string {
-	return filepath.Join(FinalGalleryDir(root, now, dirName), fileName)
+func FinalGalleryPath(root, fileName string) string {
+	return filepath.Join(root, fileName)
 }
 
 func StageDir(now time.Time, galleryID int64) string {
@@ -41,43 +41,11 @@ func AtomicReplace(tempPath, finalPath string) error {
 }
 
 func ExistingGalleryPaths(root string) (map[int64]string, error) {
-	paths := make(map[int64]string)
-
-	if _, err := os.Stat(root); err != nil {
-		if os.IsNotExist(err) {
-			return paths, nil
-		}
-		return nil, err
-	}
-
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if entry.IsDir() {
-			if entry.Name() == ".tmp" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		galleryID, ok := GalleryIDFromPath(path)
-		if !ok {
-			return nil
-		}
-
-		if _, exists := paths[galleryID]; !exists {
-			paths[galleryID] = path
-		}
-
-		return nil
-	})
+	index, err := ScanLibraryIndex(root)
 	if err != nil {
 		return nil, err
 	}
-
-	return paths, nil
+	return index.ExistingGalleryPaths(), nil
 }
 
 func GalleryIDFromPath(path string) (int64, bool) {

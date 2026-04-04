@@ -7,7 +7,7 @@ import (
 	"nfetcher/internal/nhentai"
 )
 
-func TestMarshalComicInfoOmitsChapterFieldsForKavita(t *testing.T) {
+func TestMarshalComicInfoUsesKomgaFriendlyMetadata(t *testing.T) {
 	gallery := nhentai.Gallery{
 		ID: 641153,
 		Title: nhentai.GalleryTitle{
@@ -20,27 +20,27 @@ func TestMarshalComicInfoOmitsChapterFieldsForKavita(t *testing.T) {
 		},
 	}
 
-	data, err := MarshalComicInfo(BuildComicInfo(gallery, "2026-04-04", 3))
+	data, err := MarshalComicInfo(BuildComicInfo(gallery, "nhentai-popular | 2026-04-04", 3))
 	if err != nil {
 		t.Fatalf("marshal comic info: %v", err)
 	}
 
 	xmlText := string(data)
 
-	if strings.Contains(xmlText, "<Title>") {
-		t.Fatalf("expected ComicInfo to omit Title, got %s", xmlText)
-	}
-
 	if strings.Contains(xmlText, "<Number>") {
 		t.Fatalf("expected ComicInfo to omit Number, got %s", xmlText)
 	}
 
-	if !strings.Contains(xmlText, "<Series>テスト作品</Series>") {
-		t.Fatalf("expected Series in ComicInfo, got %s", xmlText)
+	if !strings.Contains(xmlText, "<Title>テスト作品</Title>") {
+		t.Fatalf("expected Title in ComicInfo, got %s", xmlText)
 	}
 
-	if !strings.Contains(xmlText, "<StoryArc>2026-04-04</StoryArc>") {
-		t.Fatalf("expected StoryArc in ComicInfo, got %s", xmlText)
+	if strings.Contains(xmlText, "<Series>") {
+		t.Fatalf("expected ComicInfo to omit Series, got %s", xmlText)
+	}
+
+	if !strings.Contains(xmlText, "<StoryArc>nhentai-popular | 2026-04-04</StoryArc>") {
+		t.Fatalf("expected source-prefixed StoryArc in ComicInfo, got %s", xmlText)
 	}
 
 	if !strings.Contains(xmlText, "<StoryArcNumber>3</StoryArcNumber>") {
