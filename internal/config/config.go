@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -23,6 +25,9 @@ type Config struct {
 	RequestBurst       int
 	HTTPTimeout        time.Duration
 	RetryMax           int
+	BarkBaseURL        string
+	BarkDeviceKey      string
+	BarkSound          string
 }
 
 func Load() (Config, error) {
@@ -42,6 +47,9 @@ func Load() (Config, error) {
 		RequestBurst:       getenvInt("REQUEST_BURST", 8),
 		HTTPTimeout:        getenvDuration("HTTP_TIMEOUT", 30*time.Second),
 		RetryMax:           getenvInt("RETRY_MAX", 3),
+		BarkBaseURL:        strings.TrimSpace(getenv("BARK_BASE_URL", "")),
+		BarkDeviceKey:      strings.TrimSpace(getenv("BARK_DEVICE_KEY", "")),
+		BarkSound:          strings.TrimSpace(getenv("BARK_SOUND", "paymentsuccess")),
 	}
 
 	if _, err := time.LoadLocation(cfg.Timezone); err != nil {
@@ -69,7 +77,24 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("RETRY_MAX must be >= 0")
 	}
 
+	if cfg.BarkBaseURL == "" && cfg.BarkDeviceKey != "" {
+		return Config{}, fmt.Errorf("BARK_BASE_URL is required when BARK_DEVICE_KEY is set")
+	}
+	if cfg.BarkBaseURL != "" && cfg.BarkDeviceKey == "" {
+		return Config{}, fmt.Errorf("BARK_DEVICE_KEY is required when BARK_BASE_URL is set")
+	}
+	if cfg.BarkBaseURL != "" {
+		parsed, err := url.Parse(cfg.BarkBaseURL)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return Config{}, fmt.Errorf("BARK_BASE_URL must be a valid absolute URL")
+		}
+	}
+
 	return cfg, nil
+}
+
+func (c Config) BarkEnabled() bool {
+	return c.BarkBaseURL != "" && c.BarkDeviceKey != ""
 }
 
 func getenv(key, fallback string) string {

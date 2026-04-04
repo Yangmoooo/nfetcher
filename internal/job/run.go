@@ -13,7 +13,9 @@ import (
 	"nfetcher/internal/config"
 	"nfetcher/internal/metadata"
 	"nfetcher/internal/nhentai"
+	"nfetcher/internal/notify"
 	"nfetcher/internal/storage"
+	"nfetcher/internal/summary"
 )
 
 type Runner struct {
@@ -22,101 +24,73 @@ type Runner struct {
 	ImageClient Downloader
 	Logger      *log.Logger
 	NowFunc     func() time.Time
+	Mode        string
+	Notifier    notify.Sender
 }
 
-func (r *Runner) Run(ctx context.Context) error {
+func (r *Runner) Run(ctx context.Context) (runErr error) {
+	startedAt := time.Now()
 	now := r.now()
 	day := now.Format("2006-01-02")
+	runSummary := summary.Result{
+		Mode:  r.mode(),
+		Date:  day,
+		Query: r.Config.SearchQuery,
+		Sort:  r.Config.SearchSort,
+		Page:  r.Config.SearchPage,
+	}
+	defer func() {
+		runSummary.Duration = time.Since(startedAt)
+		r.finalizeRun(ctx, runSummary)
+	}()
+
 	r.logger().Printf("job start date=%s query=%q sort=%q page=%d", day, r.Config.SearchQuery, r.Config.SearchSort, r.Config.SearchPage)
 
-	existingGalleryPaths, err := storage.ExistingGalleryPaths(r.Config.LibraryDir)
+	plan, err := r.BuildPlan(ctx, PlanOptions{Log: true})
 	if err != nil {
-		return fmt.Errorf("scan existing library: %w", err)
+		runSummary.ErrorCount = 1
+		runErr = err
+		return
 	}
+	runSummary.SearchResults = plan.SearchResultsCount
+	runSummary.Duplicates = len(plan.Duplicates)
+	runSummary.Queued = len(plan.Queued)
+	runSummary.DetailErrors = len(plan.Errors)
+	runSummary.FailedGalleryIDs = append(runSummary.FailedGalleryIDs, plan.DetailFailedIDs...)
 
-	searchResult, err := r.Client.Search(ctx, r.Config.SearchQuery, r.Config.SearchSort, r.Config.SearchPage)
-	if err != nil {
-		return fmt.Errorf("search galleries: %w", err)
-	}
-
-	ids := make([]int64, 0, len(searchResult.Result))
-	searchRanks := make(map[int64]int, len(searchResult.Result))
-	for _, item := range searchResult.Result {
-		ids = append(ids, item.ID)
-		searchRanks[item.ID] = len(ids)
-	}
-
-	r.logger().Printf("search results count=%d", len(ids))
-
-	var runErrors []error
-	galleries := make([]QueuedGallery, 0, len(ids))
-	scheduledGalleryIDs := make(map[int64]struct{}, len(ids))
-	for result := range FetchDetails(ctx, r.Client, ids, r.Config.DetailConcurrency) {
-		if result.Err != nil {
-			runErrors = append(runErrors, result.Err)
-			r.logger().Printf("gallery detail failed: %v", result.Err)
-			continue
-		}
-
-		r.logger().Printf("gallery detail ok gallery_id=%d pages=%d", result.Gallery.ID, len(result.Gallery.Pages))
-		if existingPath, exists := existingGalleryPaths[result.Gallery.ID]; exists {
-			r.logger().Printf("skip duplicate gallery_id=%d existing_path=%s", result.Gallery.ID, existingPath)
-			continue
-		}
-
-		if _, exists := scheduledGalleryIDs[result.Gallery.ID]; exists {
-			r.logger().Printf("skip duplicate in-run gallery_id=%d", result.Gallery.ID)
-			continue
-		}
-
-		scheduledGalleryIDs[result.Gallery.ID] = struct{}{}
-		galleries = append(galleries, QueuedGallery{
-			Gallery: result.Gallery,
-			Rank:    searchRanks[result.Gallery.ID],
-		})
-	}
-
-	SortQueuedGalleriesByPageCountDesc(galleries)
-	if len(galleries) > 0 {
-		smallestPages := len(galleries[len(galleries)-1].Gallery.Pages)
-		largestPages := len(galleries[0].Gallery.Pages)
-		r.logger().Printf(
-			"gallery queue count=%d gallery_concurrency=%d page_concurrency=%d order=pages-desc largest_pages=%d smallest_pages=%d",
-			len(galleries),
-			r.Config.GalleryConcurrency,
-			r.Config.PageConcurrency,
-			largestPages,
-			smallestPages,
-		)
-	}
-
-	for result := range ProcessGalleries(ctx, galleries, r.Config.GalleryConcurrency, func(workerCtx context.Context, gallery QueuedGallery) error {
+	runErrors := append([]error(nil), plan.Errors...)
+	for processResult := range ProcessGalleries(ctx, plan.Queued, r.Config.GalleryConcurrency, func(workerCtx context.Context, gallery QueuedGallery) error {
 		return r.processGallery(workerCtx, now, gallery)
 	}) {
-		if result.Err != nil {
-			runErrors = append(runErrors, fmt.Errorf("process gallery %d: %w", result.QueuedGallery.Gallery.ID, result.Err))
-			r.logger().Printf("gallery archive failed gallery_id=%d error=%v", result.QueuedGallery.Gallery.ID, result.Err)
+		if processResult.Err != nil {
+			runErrors = append(runErrors, fmt.Errorf("process gallery %d: %w", processResult.QueuedGallery.Gallery.ID, processResult.Err))
+			r.logger().Printf("gallery archive failed gallery_id=%d error=%v", processResult.QueuedGallery.Gallery.ID, processResult.Err)
+			runSummary.ArchivedFailed++
+			runSummary.FailedGalleryIDs = append(runSummary.FailedGalleryIDs, processResult.QueuedGallery.Gallery.ID)
 			continue
 		}
 
-		existingGalleryPaths[result.QueuedGallery.Gallery.ID] = storage.FinalGalleryPath(r.Config.LibraryDir, now, storage.GalleryFileName(result.QueuedGallery.Gallery))
+		runSummary.ArchivedOK++
 	}
 
 	removedDirs, err := CleanupOldDirs(r.Config.LibraryDir, now, r.Config.RetentionDays)
 	if err != nil {
 		runErrors = append(runErrors, fmt.Errorf("cleanup old directories: %w", err))
 	} else {
+		runSummary.RemovedDirs = len(removedDirs)
 		for _, removedDir := range removedDirs {
 			r.logger().Printf("retention remove dir=%s", removedDir)
 		}
 	}
 
+	runSummary.ErrorCount = len(runErrors)
 	if len(runErrors) > 0 {
-		return errors.Join(runErrors...)
+		runErr = errors.Join(runErrors...)
+		return
 	}
 
-	r.logger().Printf("job finish date=%s galleries=%d queued=%d", day, len(ids), len(galleries))
-	return nil
+	r.logger().Printf("job finish date=%s galleries=%d queued=%d", day, plan.SearchResultsCount, len(plan.Queued))
+	return
 }
 
 func (r *Runner) processGallery(ctx context.Context, now time.Time, queued QueuedGallery) error {
@@ -176,4 +150,21 @@ func (r *Runner) now() time.Time {
 		return r.NowFunc()
 	}
 	return time.Now()
+}
+
+func (r *Runner) mode() string {
+	if r.Mode != "" {
+		return r.Mode
+	}
+	return r.Config.RunMode
+}
+
+func (r *Runner) finalizeRun(ctx context.Context, result summary.Result) {
+	r.logger().Print(result.LogLine())
+	if r.Notifier == nil {
+		return
+	}
+	if err := r.Notifier.Send(ctx, result); err != nil {
+		r.logger().Printf("notify bark failed error=%v", err)
+	}
 }

@@ -4,16 +4,16 @@
 
 - 每天按 cron 定时抓取 `nhentai` 的 `language:chinese + popular-today + page=1`
 - 每本漫画保存为一个 `.cbz`
-- 按日期分目录输出到 `Komga` 可扫描的目录
+- 按日期分目录输出到指定目录
 - 只保留最近 `7` 天的数据
 
 当前默认输出目录结构：
 
-- `./data/nhentai-popular/2026-04-01/<title> - <gallery-id>.cbz`
+- `./library/nhentai/2026-04-01/<title> - <gallery-id>.cbz`
 
 如果标题不可用，会回退成：
 
-- `./data/nhentai-popular/2026-04-01/<gallery-id>.cbz`
+- `./library/nhentai/2026-04-01/<gallery-id>.cbz`
 
 ## 当前默认行为
 
@@ -22,11 +22,11 @@
 - 搜索条件：`language:chinese`
 - 排序方式：`popular-today`
 - 抓取页码：第 `1` 页
-- 多本下载并发：`3`
+- 多本下载并发：`5`
 - 详情并发：`5`
-- 单本图片下载并发：`4`
-- 全局限速：`4 RPS`
-- 全局突发：`8`
+- 单本图片下载并发：`6`
+- 全局限速：`8 RPS`
+- 全局突发：`16`
 - 保留天数：`7`
 - 跨日期全局去重：同一 `gallery_id` 只保留一份归档
 - 下载调度：按页数降序，优先启动大本以缩短总完工时间
@@ -37,9 +37,7 @@
 ## 目录说明
 
 - 容器内归档目录：`/library/nhentai-popular`
-- 宿主机默认映射目录：`./data/nhentai-popular`
-
-`Komga` 应该扫描宿主机上的 `./data/nhentai-popular`，或你自行改过后的对应目录。
+- 宿主机默认映射目录：`./library/nhentai`
 
 ## 推荐部署方式：源码目录与部署目录分离
 
@@ -186,6 +184,9 @@ services:
       HTTP_PROXY: http://host.docker.internal:17890
       HTTPS_PROXY: http://host.docker.internal:17890
       NO_PROXY: ""
+      BARK_BASE_URL: ""
+      BARK_DEVICE_KEY: ""
+      BARK_SOUND: paymentsuccess
     volumes:
       - /srv/public/KomgaLibrary/nhentai:/library/nhentai-popular
     extra_hosts:
@@ -356,6 +357,8 @@ cp .env.example .env
 - `REQUEST_BURST`
 - `BUILD_HTTP_PROXY` / `BUILD_HTTPS_PROXY` / `BUILD_NO_PROXY`
 - `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`
+- `BARK_BASE_URL` / `BARK_DEVICE_KEY`
+- `BARK_SOUND`
 
 ### 2. 如需代理或改常用参数，再改 `.env`
 
@@ -386,7 +389,27 @@ docker compose build
 
 ### 4. 单次试跑
 
-第一次建议先用一次性模式：
+第一次建议先跑一次 `dry-run`，确认预检、自定义代理和本次待抓队列都符合预期：
+
+```bash
+docker compose run --rm -e RUN_MODE=dry-run nfetcher dry-run
+```
+
+`dry-run` 会真实执行：
+
+- `search`
+- `detail`
+- 本地库扫描
+- 全局去重判断
+- 队列排序预览
+
+但不会：
+
+- 下载图片
+- 写入 `.cbz`
+- 清理旧目录
+
+确认 `dry-run` 输出正常后，再用一次性模式实际抓取：
 
 ```bash
 docker compose run --rm -e RUN_MODE=run-once nfetcher run-once
@@ -429,8 +452,83 @@ docker compose down
 - `REQUEST_BURST=8`
 - `BUILD_HTTP_PROXY` / `BUILD_HTTPS_PROXY` / `BUILD_NO_PROXY`
 - `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`
+- `BARK_BASE_URL` / `BARK_DEVICE_KEY`
+- `BARK_SOUND=paymentsuccess`
 
 其余默认值已经写在 `compose.yaml` 里；如果你真的想改搜索条件、页码、并发或挂载路径，直接编辑 `compose.yaml` 即可。
+
+## 任务摘要与 Bark 通知
+
+无论是 `run-once`、`daemon` 触发的正式任务，还是 `dry-run`，结束时都会输出一条统一摘要日志，包含这些核心字段：
+
+- `status`
+- `mode`
+- `search_results`
+- `duplicates`
+- `queued`
+- `archived_ok`
+- `archived_failed`
+- `detail_errors`
+- `removed_dirs`
+- `duration`
+- `failed_gallery_ids`
+
+如果配置了下面两项，就会在任务结束后额外发送一条 Bark 通知：
+
+- `BARK_BASE_URL`
+- `BARK_DEVICE_KEY`
+
+可选项：
+
+- `BARK_SOUND`，默认 `paymentsuccess`
+
+例如：
+
+```env
+BARK_BASE_URL=https://bark.example.com
+BARK_DEVICE_KEY=xxxxxxxx
+BARK_SOUND=paymentsuccess
+```
+
+说明：
+
+- 每次任务只发送一条通知
+- 标题固定为 `Nfetcher`
+- 消息体使用简洁英文多行摘要格式，例如：
+
+```text
+Status: partial
+Mode: run-once
+Date: 2026-04-04
+
+Search | Dup | Queue: 25 | 3 | 22
+Archived | Failed: 21 | 1
+Time: 8m12s
+Failed IDs: 641153
+```
+
+- 成功、部分失败、完全失败都会发送
+- 如果 Bark 发送失败，只记日志，不影响抓取任务本身的退出结果
+
+## 支持的运行模式
+
+当前支持：
+
+- `daemon`
+- `run-once`
+- `dry-run`
+
+优先级规则：
+
+- 如果传了命令行参数，就优先使用命令行参数
+- 如果没传命令行参数，才回退到 `RUN_MODE`
+
+例如：
+
+- `RUN_MODE=daemon` + `nfetcher run-once` → 实际执行 `run-once`
+- `RUN_MODE=daemon` + `nfetcher dry-run` → 实际执行 `dry-run`
+
+`RUN_MODE=dry-run` 也是支持的，但更推荐把它当成临时调试模式，而不是长期部署默认值。
 
 ## Komga 使用建议
 
@@ -528,7 +626,19 @@ docker compose run --rm -e RUN_MODE=run-once nfetcher run-once
 
 同一天已存在的 `.cbz` 会被跳过，不会重复生成。
 
-### 5. 出现 `.cbz.part: permission denied`
+### 5. 想先预览而不实际下载
+
+```bash
+docker compose run --rm -e RUN_MODE=dry-run nfetcher dry-run
+```
+
+它会先输出 preflight，再输出本次：
+
+- 会跳过哪些 duplicate
+- 会排队下载哪些 gallery
+- 每本的排名、页数、标题和 `gallery_id`
+
+### 6. 出现 `.cbz.part: permission denied`
 
 如果你是从旧版本切过来，之前又曾经用 `root` 运行过容器，库目录里可能残留过旧的 `.tmp` 目录或 `root` 拥有的临时文件。
 

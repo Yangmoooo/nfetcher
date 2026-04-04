@@ -34,7 +34,10 @@ services:
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       NO_PROXY: ${NO_PROXY:-}
+      BARK_BASE_URL: ${BARK_BASE_URL:-}
+      BARK_DEVICE_KEY: ${BARK_DEVICE_KEY:-}
+      BARK_SOUND: ${BARK_SOUND:-paymentsuccess}
     volumes:
-      - ./data/nhentai-popular:/library/nhentai-popular
+      - ./library/nhentai:/library/nhentai-popular
     extra_hosts:
       - "host.docker.internal:host-gateway"

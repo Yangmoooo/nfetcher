@@ -15,6 +15,7 @@ type Downloader interface {
 }
 
 type GalleryResult struct {
+	ID      int64
 	Gallery nhentai.Gallery
 	Err     error
 }
@@ -43,7 +44,7 @@ func FetchDetails(ctx context.Context, client *nhentai.Client, ids []int64, work
 				select {
 				case <-ctx.Done():
 					return
-				case results <- GalleryResult{Gallery: gallery, Err: err}:
+				case results <- GalleryResult{ID: id, Gallery: gallery, Err: err}:
 				}
 			}
 		}()
