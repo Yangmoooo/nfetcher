@@ -26,6 +26,8 @@ services:
       BARK_BASE_URL: ""
       BARK_DEVICE_KEY: ""
       BARK_SOUND: paymentsuccess
+    env_file:
+      - .env
     volumes:
       - ./library/nhentai:/library/nhentai-popular
     extra_hosts:

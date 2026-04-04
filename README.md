@@ -1,250 +1,97 @@
 # nfetcher
 
-一个用 Go 编写的 Docker 抓取器，用来配合本地部署的 `Komga`：
+一个用 Go 编写的 `nhentai` 抓取器
 
-- 每天按 cron 定时抓取 `nhentai` 的 `language:chinese + popular-today + page=1`
+- 每天定时抓取
+- 条件为 `language:chinese + popular-today + page=1`
 - 每本漫画保存为一个 `.cbz`
-- 按日期分目录输出到指定目录
+- 按日期目录归档
 - 只保留最近 `7` 天的数据
+- 用来配合本地部署的 `Kavita`
 
-当前默认输出目录结构：
-
-- `./library/nhentai/2026-04-01/<title> - <gallery-id>.cbz`
-
-如果标题不可用，会回退成：
-
-- `./library/nhentai/2026-04-01/<gallery-id>.cbz`
-
-## 当前默认行为
+## 默认行为
 
 - 时区：`Asia/Shanghai`
 - 调度时间：每天 `17:30`
 - 搜索条件：`language:chinese`
 - 排序方式：`popular-today`
 - 抓取页码：第 `1` 页
-- 多本下载并发：`5`
-- 详情并发：`5`
-- 单本图片下载并发：`6`
-- 全局限速：`8 RPS`
-- 全局突发：`16`
 - 保留天数：`7`
-- 跨日期全局去重：同一 `gallery_id` 只保留一份归档
-- 下载调度：按页数降序，优先启动大本以缩短总完工时间
-- 每个 `.cbz` 会额外写入一个轻量级 `ComicInfo.xml`
+- 全局去重：同一 `gallery_id` 只保留一份归档
+- 输出格式：`.cbz`，并附带基础 `ComicInfo.xml`
 
-源码目录里，常改项可以可选写进 `.env`，示例见 `.env.example`；其余默认值已经直接写在 `compose.yaml`。
+仓库内已经提供两套配置：
 
-## 目录说明
+- `compose.yaml`：适合在源码目录里直接构建、调试和运行
+- `deploy/compose.example.yaml`：适合把运行用的 `compose` 放到单独的 Docker 管理目录
 
-- 容器内归档目录：`/library/nhentai-popular`
-- 宿主机默认映射目录：`./library/nhentai`
+## 快速开始
 
-## 推荐部署方式：源码目录与部署目录分离
+### 1. 可选：复制本地覆盖配置
 
-- 部署目录更干净，只保留镜像和运行配置
-- 不会让统一 Docker 目录混进 Go 源码、sample JSON、spec/plan 文档
-- 构建和运行职责分离
-
-目录结构示例：
-
-```text
-/srv/src/nfetcher/                  # 源码仓库
-/srv/docker/nfetcher/compose.yaml   # 部署用 compose
-```
-
-### 方案说明
-
-- 在**源码目录**里负责构建镜像
-- 在**统一 Docker 管理目录**里负责启动容器
-- 部署 compose 使用 `image:`，不直接使用 `build:`
-- 源码仓库里的 `compose.yaml` / `.env.example` 仍然保留，主要用于**本地构建、调试和一次性试跑**
-- `deploy/compose.example.yaml` 则是给**统一 Docker 管理目录**准备的部署模板
-
-这样一来：
-
-- 源码更新后，你只需要重新 build 镜像
-- 部署目录只需要 `docker compose up -d`
-
-### 源码目录配置和部署目录配置有什么区别
-
-源码仓库里的文件：
-
-- `compose.yaml`
-- `.env.example`（可选）
-
-更偏向“一体化本地使用”：
-
-- 会在当前源码目录里直接 `build`
-- 适合开发、调试、一次性试跑
-- 默认值已经直接写在 `compose.yaml`
-- `.env.example` 只保留常改项，例如抓取时间、保留天数、速率限制、代理和运行用户
-
-部署目录模板：
-
-- `deploy/compose.example.yaml`
-
-更偏向“统一运维目录使用”：
-
-- 直接使用已经构建好的 `image: local/nfetcher:latest`
-- 不再从部署目录发起 `build`
-- 默认值直接写在 compose 里，拿过去就能用
-- 更适合和你现有的其他容器一起管理
-- 需要改参数时，直接编辑部署目录里的 `compose.yaml`
-
-### 1. 在源码目录构建镜像
-
-先进入源码目录：
+如果你想改抓取时间、运行用户、代理或 Bark，可以先复制：
 
 ```bash
-cd /srv/src/nfetcher
+cp .env.example .env
 ```
 
-如果你**不需要代理**：
+不复制也可以直接运行；`compose.yaml` 已经带了默认值。
+
+常改项主要是：
+
+- `NFETCHER_USER`
+- `SCHEDULE_CRON`
+- `RETENTION_DAYS`
+- `BUILD_HTTP_PROXY` / `BUILD_HTTPS_PROXY`
+- `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`
+- `BARK_BASE_URL` / `BARK_DEVICE_KEY` / `BARK_SOUND`
+
+### 2. 构建镜像
+
+在源码目录执行：
 
 ```bash
 docker build -t local/nfetcher:latest .
 ```
 
-如果你在中国大陆网络环境里构建，当前 `Dockerfile` 已经默认使用：
+### 3. 先跑一次 `dry-run`
 
-- Go 模块：`https://goproxy.cn,direct`
-- Go 校验：`sum.golang.google.cn`
-- apt 镜像：`https://mirrors.tuna.tsinghua.edu.cn`
-
-也就是说，即使你不额外传这些参数，构建阶段也已经优先走国内下载加速。
-
-如果你**需要代理**，并且你的 `mihomo` 使用的是 **host 网络模式**，那它本质上就是一个“宿主机上的代理服务”。
-
-这时建议优先使用：
-
-- `http://host.docker.internal:17890`
-
-如果你的构建环境里 `host.docker.internal` 不可用，再改成你宿主机实际可达的地址，例如：
-
-- `http://192.168.1.10:17890`
-
-构建示例：
+第一次建议先预检和预览待抓队列：
 
 ```bash
-docker build \
-  --add-host host.docker.internal:host-gateway \
-  --build-arg HTTP_PROXY=http://host.docker.internal:17890 \
-  --build-arg HTTPS_PROXY=http://host.docker.internal:17890 \
-  -t local/nfetcher:latest .
+docker compose run --rm nfetcher dry-run
 ```
 
-如果上面的主机名在你的构建环境里不能解析，就把它替换成宿主机实际 IP：
+`dry-run` 会：
+
+- 检查库目录、代理、通知等基础配置
+- 请求搜索和详情接口
+- 计算去重结果和本次待抓队列
+- 不实际下载图片，也不会写入 `.cbz`
+
+### 4. 手动实际抓取一次
 
 ```bash
-docker build \
-  --add-host host.docker.internal:host-gateway \
-  --build-arg HTTP_PROXY=http://<HOST_IP>:17890 \
-  --build-arg HTTPS_PROXY=http://<HOST_IP>:17890 \
-  -t local/nfetcher:latest .
+docker compose run --rm nfetcher run-once
 ```
 
-如果你只想覆盖构建镜像加速，也可以显式传入：
+### 5. 常驻运行
 
 ```bash
-docker build \
-  --build-arg GOPROXY=https://goproxy.cn,direct \
-  --build-arg GOSUMDB=sum.golang.google.cn \
-  --build-arg APT_DEBIAN_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian \
-  --build-arg APT_SECURITY_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian-security \
-  -t local/nfetcher:latest .
-```
-
-### 2. 在部署目录放置 compose 文件
-
-部署目录里的 `compose.yaml` 可以写成这样：
-
-```yaml
-services:
-  nfetcher:
-    image: local/nfetcher:latest
-    container_name: nfetcher
-    restart: unless-stopped
-    user: "1000:1000"
-    environment:
-      TZ: Asia/Shanghai
-      RUN_MODE: daemon
-      SCHEDULE_CRON: "30 17 * * *"
-      LIBRARY_DIR: /library/nhentai-popular
-      RETENTION_DAYS: "7"
-      SEARCH_QUERY: language:chinese
-      SEARCH_SORT: popular-today
-      SEARCH_PAGE: "1"
-      GALLERY_CONCURRENCY: "3"
-      DETAIL_CONCURRENCY: "5"
-      PAGE_CONCURRENCY: "4"
-      REQUEST_RPS: "4"
-      REQUEST_BURST: "8"
-      HTTP_TIMEOUT: 30s
-      RETRY_MAX: "3"
-      HTTP_PROXY: http://host.docker.internal:17890
-      HTTPS_PROXY: http://host.docker.internal:17890
-      NO_PROXY: ""
-      BARK_BASE_URL: ""
-      BARK_DEVICE_KEY: ""
-      BARK_SOUND: paymentsuccess
-    volumes:
-      - /srv/public/KomgaLibrary/nhentai:/library/nhentai-popular
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-```
-
-这里有几点：
-
-- `image: local/nfetcher:latest` 表示直接使用你在源码目录构建好的镜像
-- `/srv/public/KomgaLibrary/nhentai` 使用你当前 README 里已经确认的宿主机目录
-- `extra_hosts` 用来让容器在运行时访问宿主机上的代理服务
-- `user: "1000:1000"` 用来避免抓取结果以 `root` 身份写入宿主机目录
-- 代理默认写成 `http://host.docker.internal:17890`，适合宿主机上运行 `mihomo` 的场景
-- 当前默认是“平衡档”：`GALLERY_CONCURRENCY=3`、`DETAIL_CONCURRENCY=5`、`PAGE_CONCURRENCY=4`、`REQUEST_RPS=4`、`REQUEST_BURST=8`
-
-如果你想直接拿现成模板，可以复制：
-
-```bash
-cp deploy/compose.example.yaml /srv/docker/nfetcher/compose.yaml
-```
-
-### 3. 按需直接修改部署 compose
-
-对于你这种 `mihomo` 使用 **host 网络模式** 的场景，默认模板已经按推荐方式写好了，所以大多数情况下你**不需要再额外准备 env 文件**。
-
-如果 `host.docker.internal` 在你的运行环境里不可用，就把 compose 里的这两行改成宿主机实际可达 IP：
-
-```yaml
-      HTTP_PROXY: http://<HOST_IP>:17890
-      HTTPS_PROXY: http://<HOST_IP>:17890
-```
-
-如果你希望不是 `1000:1000`，直接修改 compose：
-
-```yaml
-    user: "1001:1001"
-```
-
-### 4. 在部署目录启动
-
-```bash
-cd /srv/docker/nfetcher
 docker compose up -d
-```
-
-查看日志：
-
-```bash
 docker compose logs -f nfetcher
 ```
 
-### 5. 更新流程
+默认 `RUN_MODE=daemon`，会按 `SCHEDULE_CRON` 定时执行。
 
-以后更新代码时，建议这样做：
+## 独立部署
 
-1. 在源码目录拉取/修改代码
-2. 在源码目录重新构建镜像
-3. 回到部署目录重启服务
+如果你想把运行用的 `compose` 放到另一个 Docker 管理目录，推荐这样做：
+
+1. 在源码目录构建镜像
+2. 复制 `deploy/compose.example.yaml` 到部署目录
+3. 在部署目录修改挂载路径、代理、Bark 和运行用户
+4. 在部署目录执行 `docker compose up -d`
 
 示例：
 
@@ -252,237 +99,52 @@ docker compose logs -f nfetcher
 cd /srv/src/nfetcher
 docker build -t local/nfetcher:latest .
 
+mkdir -p /srv/docker/nfetcher
+cp deploy/compose.example.yaml /srv/docker/nfetcher/compose.yaml
+
 cd /srv/docker/nfetcher
 docker compose up -d
 ```
 
-## `mihomo` 使用 host 网络时怎么理解
+`deploy/compose.example.yaml` 默认就是：
 
-因为你的 `mihomo` 使用的是 **host 网络模式**，所以对 `nfetcher` 来说，它不是“另一个 bridge 网络里的容器服务”，而更像是：
+- `image: local/nfetcher:latest`
+- `user: 1000:1000`
+- 运行代理地址：`http://host.docker.internal:17890`
+- 库目录挂载：`./library/nhentai:/library/nhentai-popular`
 
-- **宿主机上的一个代理端口**
+## 代理与 Bark
 
-这意味着：
+### 代理
 
-- 运行时不要写 `http://mihomo:17890`
-- 更推荐写：
-  - `http://host.docker.internal:17890`
-  - 或 `http://<HOST_IP>:17890`
+如果你的代理运行在宿主机上，例如 `mihomo` 使用 host 网络模式，推荐使用：
 
-如果你以后把 `mihomo` 改成普通 bridge 网络，并且和 `nfetcher` 加入同一个 Docker 网络，那时才更适合用容器名访问。
-
-从职责上讲，`nfetcher` 一般**不需要**加入 `Traefik` 的反代网络；如果你只是觉得默认网络名字不好看，可以把 compose 项目名改掉，但没必要为了这个把它强行放进 `rproxy`。
-
-另外，源码目录和部署目录现在都尽量采用同一思路：
-
-- `compose.yaml` 里显式列出运行时 `environment`
-- `.env` 只负责提供变量值
-- 构建阶段专用变量只保留在源码目录，例如 `BUILD_HTTP_PROXY`
-
-## 为什么现在还保留 `extra_hosts`
-
-这里最容易混淆的是：`HTTP_PROXY` 只是一个环境变量值，例如：
-
-```env
-HTTP_PROXY=http://host.docker.internal:17890
+```text
+http://host.docker.internal:17890
 ```
 
-这行配置只是告诉程序“代理地址叫什么”，**并不会自动让容器认识 `host.docker.internal` 这个主机名**。
+构建阶段用：
 
-因此仍然需要：
+- `BUILD_HTTP_PROXY`
+- `BUILD_HTTPS_PROXY`
+- `BUILD_NO_PROXY`
+
+运行阶段用：
+
+- `HTTP_PROXY`
+- `HTTPS_PROXY`
+- `NO_PROXY`
+
+仓库里的 `compose.yaml` 和 `deploy/compose.example.yaml` 都已经包含：
 
 ```yaml
 extra_hosts:
   - "host.docker.internal:host-gateway"
 ```
 
-它的作用是把：
+### Bark
 
-- `host.docker.internal`
-
-写进容器的 hosts 解析里，让运行容器真的能连到宿主机。
-
-另外要注意，**运行时的 `extra_hosts` 和构建阶段不是一回事**：
-
-- 服务级 `extra_hosts`：作用于 `docker compose up`
-- `build.extra_hosts`：作用于 `docker compose build`
-
-所以源码仓库里的 `compose.yaml` 现在两处都保留了 host 映射：
-
-- build 阶段能在需要时访问宿主机代理
-- run 阶段也能访问宿主机代理
-
-如果你把代理地址直接写成：
-
-- `http://172.17.0.1:17890`
-
-那通常可以不依赖 `extra_hosts`。但 `172.17.0.1` 不如 `host.docker.internal` 语义清晰，而且并不是所有 Docker 环境都保证它固定不变。
-
-## 全局去重规则
-
-现在的去重规则是按整个库目录生效，而不只是“当天目录”：
-
-- 抓取当天榜单后，会先扫描 `LIBRARY_DIR` 下已经存在的 `.cbz`
-- 以 `gallery_id` 为唯一键
-- 如果某一本已经存在于任意日期目录中，就跳过当天重复下载
-
-例如：
-
-- 今天榜单有 `25` 本
-- 其中 `3` 本已经存在于前几天目录
-- 那今天只会新增 `22` 本
-
-这样可以避免同一作品在最近几天反复占用空间。
-
-## 快速开始
-
-### 1. 可选：复制环境变量模板
-
-```bash
-cp .env.example .env
-```
-
-这一步不是必须的；只有你想覆盖常改项时才需要。
-
-`.env.example` 现在只保留这些本地经常会改的项：
-
-- `TZ`
-- `NFETCHER_USER`
-- `SCHEDULE_CRON`
-- `RETENTION_DAYS`
-- `GALLERY_CONCURRENCY`
-- `DETAIL_CONCURRENCY`
-- `PAGE_CONCURRENCY`
-- `REQUEST_RPS`
-- `REQUEST_BURST`
-- `BUILD_HTTP_PROXY` / `BUILD_HTTPS_PROXY` / `BUILD_NO_PROXY`
-- `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`
-- `BARK_BASE_URL` / `BARK_DEVICE_KEY`
-- `BARK_SOUND`
-
-### 2. 如需代理或改常用参数，再改 `.env`
-
-如果你本机已经有代理，**不要直接把宿主机的 `127.0.0.1:端口` 填给容器**，因为容器里的 `127.0.0.1` 指向的是容器自己。
-
-如果代理运行在宿主机上，通常应该这样填：
-
-```env
-BUILD_HTTP_PROXY=http://host.docker.internal:17890
-BUILD_HTTPS_PROXY=http://host.docker.internal:17890
-HTTP_PROXY=http://host.docker.internal:17890
-HTTPS_PROXY=http://host.docker.internal:17890
-```
-
-`compose.yaml` 已经加入：
-
-- `host.docker.internal:host-gateway`
-
-因此在大多数现代 Docker 环境里，这种写法可以让容器访问宿主机代理。
-
-如果你不需要代理，可以把相关变量留空。
-
-### 3. 构建镜像
-
-```bash
-docker compose build
-```
-
-### 4. 单次试跑
-
-第一次建议先跑一次 `dry-run`，确认预检、自定义代理和本次待抓队列都符合预期：
-
-```bash
-docker compose run --rm -e RUN_MODE=dry-run nfetcher dry-run
-```
-
-`dry-run` 会真实执行：
-
-- `search`
-- `detail`
-- 本地库扫描
-- 全局去重判断
-- 队列排序预览
-
-但不会：
-
-- 下载图片
-- 写入 `.cbz`
-- 清理旧目录
-
-确认 `dry-run` 输出正常后，再用一次性模式实际抓取：
-
-```bash
-docker compose run --rm -e RUN_MODE=run-once nfetcher run-once
-```
-
-成功后，输出文件会出现在：
-
-- `./data/nhentai-popular/<YYYY-MM-DD>/`
-
-### 5. 常驻运行
-
-确认单次试跑正常后，再启动常驻定时模式：
-
-```bash
-docker compose up -d
-```
-
-查看日志：
-
-```bash
-docker compose logs -f nfetcher
-```
-
-停止服务：
-
-```bash
-docker compose down
-```
-
-## 源码目录里建议放进 `.env` 的常改项
-
-- `TZ=Asia/Shanghai`
-- `NFETCHER_USER=1000:1000`
-- `SCHEDULE_CRON=30 17 * * *`
-- `RETENTION_DAYS=7`
-- `GALLERY_CONCURRENCY=3`
-- `DETAIL_CONCURRENCY=5`
-- `PAGE_CONCURRENCY=4`
-- `REQUEST_RPS=4`
-- `REQUEST_BURST=8`
-- `BUILD_HTTP_PROXY` / `BUILD_HTTPS_PROXY` / `BUILD_NO_PROXY`
-- `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`
-- `BARK_BASE_URL` / `BARK_DEVICE_KEY`
-- `BARK_SOUND=paymentsuccess`
-
-其余默认值已经写在 `compose.yaml` 里；如果你真的想改搜索条件、页码、并发或挂载路径，直接编辑 `compose.yaml` 即可。
-
-## 任务摘要与 Bark 通知
-
-无论是 `run-once`、`daemon` 触发的正式任务，还是 `dry-run`，结束时都会输出一条统一摘要日志，包含这些核心字段：
-
-- `status`
-- `mode`
-- `search_results`
-- `duplicates`
-- `queued`
-- `archived_ok`
-- `archived_failed`
-- `detail_errors`
-- `removed_dirs`
-- `duration`
-- `failed_gallery_ids`
-
-如果配置了下面两项，就会在任务结束后额外发送一条 Bark 通知：
-
-- `BARK_BASE_URL`
-- `BARK_DEVICE_KEY`
-
-可选项：
-
-- `BARK_SOUND`，默认 `paymentsuccess`
-
-例如：
+如果你想在任务结束后收到一条 Bark 通知，设置下面几个变量即可：
 
 ```env
 BARK_BASE_URL=https://bark.example.com
@@ -492,164 +154,34 @@ BARK_SOUND=paymentsuccess
 
 说明：
 
-- 每次任务只发送一条通知
-- 标题固定为 `Nfetcher`
-- 消息体使用简洁英文多行摘要格式，例如：
+- 每次任务结束只发送一条通知
+- 通知里会带精确执行时间、统计摘要和失败的 gallery id
+
+## 输出结构
+
+默认容器内目录：
+
+- `/library/nhentai-popular`
+
+源码目录 `compose.yaml` 默认映射到宿主机：
+
+- `./library/nhentai`
+
+生成后的实际结构类似：
 
 ```text
-Status: partial
-Mode: run-once
-Date: 2026-04-04
-
-Search | Dup | Queue: 25 | 3 | 22
-Archived | Failed: 21 | 1
-Time: 8m12s
-Failed IDs: 641153
+./library/nhentai/2026-04-04/<title> - <gallery-id>/<title> - <gallery-id>.cbz
 ```
 
-- 成功、部分失败、完全失败都会发送
-- 如果 Bark 发送失败，只记日志，不影响抓取任务本身的退出结果
+如果标题不可用，会回退成：
 
-## 支持的运行模式
-
-当前支持：
-
-- `daemon`
-- `run-once`
-- `dry-run`
-
-优先级规则：
-
-- 如果传了命令行参数，就优先使用命令行参数
-- 如果没传命令行参数，才回退到 `RUN_MODE`
-
-例如：
-
-- `RUN_MODE=daemon` + `nfetcher run-once` → 实际执行 `run-once`
-- `RUN_MODE=daemon` + `nfetcher dry-run` → 实际执行 `dry-run`
-
-`RUN_MODE=dry-run` 也是支持的，但更推荐把它当成临时调试模式，而不是长期部署默认值。
-
-## Komga 使用建议
-
-给 `Komga` 新建一个单独的库，指向：
-
-- `/srv/public/KomgaLibrary/nhentai`
-
-因为抓取结果按日期分目录，所以在 `Komga` 里更接近“最近几天的热门归档”，同时你打开最新日期目录时，本质上就是在看当天热门。
-
-## 命名规则
-
-标题优先级：
-
-1. `title.japanese`
-2. `title.english`
-3. `gallery_id`
-
-文件名规则：
-
-- 有标题：`<preferred-title> - <gallery-id>.cbz`
-- 无标题：`<gallery-id>.cbz`
-
-`gallery_id` 会继续保留在文件名中，用于全局去重、人工排查和回溯 nhentai 页面。
-
-## `ComicInfo.xml`
-
-每个 `.cbz` 里都会额外包含一个轻量级 `ComicInfo.xml`，当前只写这些字段：
-
-- `Title`：按 `title.japanese -> title.english -> gallery_id` 回退
-- `Number`：当天榜单排名
-- `Web`：`https://nhentai.net/g/<gallery_id>/`
-- `Tags`：直接使用 nhentai 返回的 `tags[].name`
-- `AgeRating`：固定写 `18`
-
-为了避免干扰 `Komga` 对日期目录的聚合结果，当前不会写 `Series`、`Volume`、作者角色或其他 series 级字段。
-
-## 当前已验证内容
-
-我已经在当前环境里验证过：
-
-- `go test ./...` 可以通过编译检查
-- `docker compose config` 可以正确展开配置
-
-但真正的在线抓取是否成功，还取决于你本机网络、代理可达性，以及目标站点当下的访问状态。
-
-## 常见问题
-
-### 1. `docker compose build` 里访问网络失败
-
-优先检查：
-
-- `BUILD_HTTP_PROXY`
-- `BUILD_HTTPS_PROXY`
-
-如果你用的是宿主机本地代理，不要写成：
-
-- `http://127.0.0.1:17890`
-
-而应该优先尝试：
-
-- `http://host.docker.internal:17890`
-
-### 2. 运行时抓不到数据或图片下载失败
-
-优先检查：
-
-- `HTTP_PROXY`
-- `HTTPS_PROXY`
-- `REQUEST_RPS`
-- `REQUEST_BURST`
-
-如果站点不稳定，可以先保持低速率，不要把并发和 RPS 一次拉得太高。
-
-### 3. 想改抓取时间
-
-如果你使用源码目录的 `.env`，直接修改：
-
-```env
-SCHEDULE_CRON=0 19 * * *
+```text
+./library/nhentai/2026-04-04/<gallery-id>/<gallery-id>.cbz
 ```
 
-然后重启服务：
+补充说明：
 
-```bash
-docker compose up -d --build
-```
+- 文件名和目录名都会保留 `gallery_id`
+- 同一 `gallery_id` 在整个库里只会保留一份
+- 每个 `.cbz` 都会写入基础 `ComicInfo.xml`，供 `Kavita` 读取
 
-如果你使用部署模板，就直接改部署目录 `compose.yaml` 里的 `SCHEDULE_CRON`。
-
-### 4. 想手动补跑一次
-
-```bash
-docker compose run --rm -e RUN_MODE=run-once nfetcher run-once
-```
-
-同一天已存在的 `.cbz` 会被跳过，不会重复生成。
-
-### 5. 想先预览而不实际下载
-
-```bash
-docker compose run --rm -e RUN_MODE=dry-run nfetcher dry-run
-```
-
-它会先输出 preflight，再输出本次：
-
-- 会跳过哪些 duplicate
-- 会排队下载哪些 gallery
-- 每本的排名、页数、标题和 `gallery_id`
-
-### 6. 出现 `.cbz.part: permission denied`
-
-如果你是从旧版本切过来，之前又曾经用 `root` 运行过容器，库目录里可能残留过旧的 `.tmp` 目录或 `root` 拥有的临时文件。
-
-当前版本已经改成把临时归档直接写到目标日期目录中，不再依赖库根目录的 `.tmp`。如果你仍然看到旧残留，可以在宿主机上手动清理它：
-
-```bash
-rm -rf /srv/public/KomgaLibrary/nhentai/.tmp
-```
-
-如果目标日期目录本身也是旧的 `root` 权限，再把整个库目录修正成你的媒体用户，例如：
-
-```bash
-chown -R 1000:1000 /srv/public/KomgaLibrary/nhentai
-```
