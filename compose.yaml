@@ -12,7 +12,7 @@ services:
       SEARCH_QUERY: language:chinese
       SEARCH_SORT: popular-today
       SEARCH_PAGE: 1
-      GALLERY_CONCURRENCY: 5
+      GALLERY_CONCURRENCY: 4
       DETAIL_CONCURRENCY: 5
       PAGE_CONCURRENCY: 6
       REQUEST_RPS: 8
