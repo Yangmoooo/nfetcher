@@ -7,10 +7,28 @@ type SearchResponse struct {
 	Result   []GallerySearch `json:"result"`
 }
 
+func (r *SearchResponse) Normalize() {
+	for index := range r.Result {
+		r.Result[index].Normalize()
+	}
+}
+
 type GallerySearch struct {
-	ID       int64  `json:"id"`
-	MediaID  string `json:"media_id"`
-	NumPages int    `json:"num_pages"`
+	ID            int64        `json:"id"`
+	MediaID       string       `json:"media_id"`
+	EnglishTitle  string       `json:"english_title"`
+	JapaneseTitle *string      `json:"japanese_title"`
+	Title         GalleryTitle `json:"-"`
+	NumPages      int          `json:"num_pages"`
+}
+
+func (g *GallerySearch) Normalize() {
+	if g.Title.English == "" {
+		g.Title.English = g.EnglishTitle
+	}
+	if g.Title.Japanese == "" && g.JapaneseTitle != nil {
+		g.Title.Japanese = *g.JapaneseTitle
+	}
 }
 
 type Gallery struct {

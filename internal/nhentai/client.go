@@ -48,6 +48,7 @@ func (c *Client) Search(ctx context.Context, query, sort string, page int) (Sear
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return SearchResponse{}, err
 	}
+	out.Normalize()
 
 	return out, nil
 }
