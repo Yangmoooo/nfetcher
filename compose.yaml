@@ -9,14 +9,16 @@ services:
       RUN_MODE: daemon
       SCHEDULE_CRON: 30 17 * * *
       RETENTION_DAYS: 7
+      NHENTAI_API_KEY: ""
+      NFETCHER_USER_AGENT: "nfetcher/1.0 (https://github.com/Yangmoooo/nfetcher)"
       SEARCH_QUERY: language:chinese
       SEARCH_SORT: popular-today
       SEARCH_PAGE: 1
-      GALLERY_CONCURRENCY: 4
-      DETAIL_CONCURRENCY: 5
-      PAGE_CONCURRENCY: 6
-      REQUEST_RPS: 8
-      REQUEST_BURST: 16
+      GALLERY_CONCURRENCY: 1
+      DETAIL_CONCURRENCY: 2
+      REQUEST_RPS: 1
+      REQUEST_BURST: 2
+      DOWNLOAD_ISSUE_INTERVAL: 30s
       HTTP_TIMEOUT: 60s
       RETRY_MAX: 3
       HTTP_PROXY: http://host.docker.internal:17890
