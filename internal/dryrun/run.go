@@ -87,7 +87,7 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 			"plan skip rank=%d gallery_id=%d pages=%d title=%q reason=duplicate existing_path=%q",
 			duplicate.Rank,
 			duplicate.Gallery.ID,
-			len(duplicate.Gallery.Pages),
+			duplicate.Gallery.NumPages,
 			storage.ChooseTitle(duplicate.Gallery),
 			duplicate.ExistingPath,
 		)
@@ -99,7 +99,7 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 			queueIndex+1,
 			queued.Rank,
 			queued.Gallery.ID,
-			len(queued.Gallery.Pages),
+			queued.Gallery.NumPages,
 			storage.ChooseTitle(queued.Gallery),
 		)
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type Doer interface {
@@ -15,14 +14,12 @@ type Doer interface {
 
 type Client struct {
 	apiBase   string
-	imageBase string
 	apiClient Doer
 }
 
 func NewClient(apiClient Doer) *Client {
 	return &Client{
 		apiBase:   "https://nhentai.net",
-		imageBase: "https://i.nhentai.net",
 		apiClient: apiClient,
 	}
 }
@@ -73,6 +70,28 @@ func (c *Client) GetGallery(ctx context.Context, id int64) (Gallery, error) {
 	return out, nil
 }
 
-func (c *Client) ImageURL(pagePath string) string {
-	return c.imageBase + "/" + strings.TrimLeft(pagePath, "/")
+func (c *Client) DownloadGallery(ctx context.Context, id int64) (DownloadResponse, error) {
+	values := url.Values{}
+	values.Set("format", "cbz")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v2/galleries/%d/download?%s", c.apiBase, id, values.Encode()), nil)
+	if err != nil {
+		return DownloadResponse{}, err
+	}
+
+	resp, err := c.apiClient.Do(ctx, req)
+	if err != nil {
+		return DownloadResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	var out DownloadResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return DownloadResponse{}, err
+	}
+	if out.URL == "" {
+		return DownloadResponse{}, fmt.Errorf("download url is empty for gallery %d", id)
+	}
+
+	return out, nil
 }

@@ -64,3 +64,32 @@ func TestSearchParsesCurrentGalleryListResponse(t *testing.T) {
 		t.Fatalf("expected title fields mapped, got %#v", gallery.Title)
 	}
 }
+
+func TestDownloadGalleryRequestsOfficialCBZURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("unexpected method %s", r.Method)
+		}
+		if r.URL.Path != "/api/v2/galleries/645649/download" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("format"); got != "cbz" {
+			t.Fatalf("unexpected format %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"url":"https://download.example/645649.cbz","expires_at":1778046612}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(roundTripDoer{client: server.Client()})
+	client.apiBase = server.URL
+
+	response, err := client.DownloadGallery(context.Background(), 645649)
+	if err != nil {
+		t.Fatalf("download gallery: %v", err)
+	}
+
+	if response.URL != "https://download.example/645649.cbz" || response.ExpiresAt != 1778046612 {
+		t.Fatalf("unexpected download response: %#v", response)
+	}
+}

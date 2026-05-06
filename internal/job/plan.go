@@ -78,7 +78,7 @@ func (r *Runner) BuildPlan(ctx context.Context, options PlanOptions) (PlanResult
 		}
 
 		if options.Log {
-			r.logger().Printf("gallery detail ok gallery_id=%d pages=%d", result.Gallery.ID, len(result.Gallery.Pages))
+			r.logger().Printf("gallery detail ok gallery_id=%d pages=%d", result.Gallery.ID, result.Gallery.NumPages)
 		}
 
 		if existingPath, exists := existingGalleryPaths[result.Gallery.ID]; exists {
@@ -105,13 +105,12 @@ func (r *Runner) BuildPlan(ctx context.Context, options PlanOptions) (PlanResult
 
 	SortQueuedGalleriesByPageCountDesc(plan.Queued)
 	if options.Log && len(plan.Queued) > 0 {
-		smallestPages := len(plan.Queued[len(plan.Queued)-1].Gallery.Pages)
-		largestPages := len(plan.Queued[0].Gallery.Pages)
+		smallestPages := plan.Queued[len(plan.Queued)-1].Gallery.NumPages
+		largestPages := plan.Queued[0].Gallery.NumPages
 		r.logger().Printf(
-			"gallery queue count=%d gallery_concurrency=%d page_concurrency=%d order=pages-desc largest_pages=%d smallest_pages=%d",
+			"gallery queue count=%d gallery_concurrency=%d order=pages-desc largest_pages=%d smallest_pages=%d",
 			len(plan.Queued),
 			r.Config.GalleryConcurrency,
-			r.Config.PageConcurrency,
 			largestPages,
 			smallestPages,
 		)

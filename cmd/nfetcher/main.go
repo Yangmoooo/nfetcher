@@ -32,19 +32,19 @@ func main() {
 	defer stop()
 
 	sharedHTTP := httpx.NewShared(cfg.HTTPTimeout, cfg.RequestRPS, cfg.RequestBurst, cfg.RetryMax)
-	apiHTTP := httpx.NewClient(sharedHTTP, httpx.APIHeaders())
-	imageHTTP := httpx.NewClient(sharedHTTP, httpx.ImageHeaders())
-	notifyHTTP := httpx.NewClient(sharedHTTP, httpx.APIHeaders())
+	apiHTTP := httpx.NewClient(sharedHTTP, httpx.APIHeaders(cfg.UserAgent, cfg.NHentaiAPIKey))
+	downloadHTTP := httpx.NewClient(sharedHTTP, httpx.DownloadHeaders(cfg.UserAgent))
+	notifyHTTP := httpx.NewClient(sharedHTTP, httpx.DefaultHeaders(cfg.UserAgent))
 	nhClient := nhentai.NewClient(apiHTTP)
 	barkNotifier := notify.NewBark(notifyHTTP, cfg)
 
 	logger := log.Default()
 	runner := &job.Runner{
-		Config:      cfg,
-		Client:      nhClient,
-		ImageClient: imageHTTP,
-		Logger:      logger,
-		Notifier:    barkNotifier,
+		Config:         cfg,
+		Client:         nhClient,
+		DownloadClient: downloadHTTP,
+		Logger:         logger,
+		Notifier:       barkNotifier,
 		NowFunc: func() time.Time {
 			return time.Now().In(location)
 		},

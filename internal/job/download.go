@@ -2,15 +2,13 @@ package job
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
 	"sort"
 	"sync"
 
 	"nfetcher/internal/nhentai"
 )
 
-type Downloader interface {
+type FileDownloader interface {
 	DownloadToFile(ctx context.Context, rawURL, dstPath string) error
 }
 
@@ -71,8 +69,8 @@ func FetchDetails(ctx context.Context, client *nhentai.Client, ids []int64, work
 
 func SortQueuedGalleriesByPageCountDesc(galleries []QueuedGallery) {
 	sort.Slice(galleries, func(i, j int) bool {
-		leftPages := len(galleries[i].Gallery.Pages)
-		rightPages := len(galleries[j].Gallery.Pages)
+		leftPages := galleries[i].Gallery.NumPages
+		rightPages := galleries[j].Gallery.NumPages
 		if leftPages != rightPages {
 			return leftPages > rightPages
 		}
@@ -117,69 +115,4 @@ func ProcessGalleries(ctx context.Context, galleries []QueuedGallery, workers in
 	}()
 
 	return results
-}
-
-func pageFileName(number int, pagePath string) string {
-	return fmt.Sprintf("%03d%s", number, filepath.Ext(pagePath))
-}
-
-func downloadPages(ctx context.Context, apiClient *nhentai.Client, imageClient Downloader, gallery nhentai.Gallery, stageDir string, workers int) error {
-	if len(gallery.Pages) == 0 {
-		return fmt.Errorf("gallery %d has no pages", gallery.ID)
-	}
-
-	pageCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	jobs := make(chan nhentai.Page)
-	errCh := make(chan error, 1)
-
-	var workersWG sync.WaitGroup
-	for workerIndex := 0; workerIndex < workers; workerIndex++ {
-		workersWG.Add(1)
-		go func() {
-			defer workersWG.Done()
-			for {
-				select {
-				case <-pageCtx.Done():
-					return
-				case page, ok := <-jobs:
-					if !ok {
-						return
-					}
-
-					dstPath := filepath.Join(stageDir, pageFileName(page.Number, page.Path))
-					rawURL := apiClient.ImageURL(page.Path)
-					if err := imageClient.DownloadToFile(pageCtx, rawURL, dstPath); err != nil {
-						select {
-						case errCh <- err:
-						default:
-						}
-						cancel()
-						return
-					}
-				}
-			}
-		}()
-	}
-
-	go func() {
-		defer close(jobs)
-		for _, page := range gallery.Pages {
-			select {
-			case <-pageCtx.Done():
-				return
-			case jobs <- page:
-			}
-		}
-	}()
-
-	workersWG.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
 }

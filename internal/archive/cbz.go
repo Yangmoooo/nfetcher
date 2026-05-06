@@ -2,27 +2,19 @@ package archive
 
 import (
 	"archive/zip"
-	"bytes"
+	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"sort"
+
+	"nfetcher/internal/metadata"
 )
 
-type ExtraFile struct {
-	Name string
-	Data []byte
-}
-
-func WriteCBZ(srcDir, dstPath string, extraFiles []ExtraFile) error {
-	entries, err := os.ReadDir(srcDir)
+func RewriteCBZ(srcPath, dstPath, storyArc string, rank int) error {
+	src, err := zip.OpenReader(srcPath)
 	if err != nil {
 		return err
 	}
-
-	sort.Slice(entries, func(left, right int) bool {
-		return entries[left].Name() < entries[right].Name()
-	})
+	defer src.Close()
 
 	dst, err := os.Create(dstPath)
 	if err != nil {
@@ -31,54 +23,80 @@ func WriteCBZ(srcDir, dstPath string, extraFiles []ExtraFile) error {
 	defer dst.Close()
 
 	zipWriter := zip.NewWriter(dst)
+	foundComicInfo := false
 
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for _, file := range src.File {
+		if file.Name == "ComicInfo.xml" {
+			foundComicInfo = true
+			if err := copyPatchedComicInfo(zipWriter, file, storyArc, rank); err != nil {
+				_ = zipWriter.Close()
+				return err
+			}
 			continue
 		}
 
-		srcPath := filepath.Join(srcDir, entry.Name())
-		src, err := os.Open(srcPath)
-		if err != nil {
-			_ = zipWriter.Close()
-			return err
-		}
-
-		writer, err := zipWriter.Create(entry.Name())
-		if err != nil {
-			src.Close()
-			_ = zipWriter.Close()
-			return err
-		}
-
-		if _, err := io.Copy(writer, src); err != nil {
-			src.Close()
-			_ = zipWriter.Close()
-			return err
-		}
-
-		if err := src.Close(); err != nil {
+		if err := copyEntry(zipWriter, file); err != nil {
 			_ = zipWriter.Close()
 			return err
 		}
 	}
 
-	sort.Slice(extraFiles, func(left, right int) bool {
-		return extraFiles[left].Name < extraFiles[right].Name
-	})
-
-	for _, extraFile := range extraFiles {
-		writer, err := zipWriter.Create(extraFile.Name)
-		if err != nil {
-			_ = zipWriter.Close()
-			return err
-		}
-
-		if _, err := io.Copy(writer, bytes.NewReader(extraFile.Data)); err != nil {
-			_ = zipWriter.Close()
-			return err
-		}
+	if !foundComicInfo {
+		_ = zipWriter.Close()
+		return fmt.Errorf("ComicInfo.xml not found in %s", srcPath)
 	}
 
 	return zipWriter.Close()
+}
+
+func copyPatchedComicInfo(zipWriter *zip.Writer, file *zip.File, storyArc string, rank int) error {
+	reader, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+
+	patched, err := metadata.PatchComicInfo(data, storyArc, rank)
+	if err != nil {
+		return err
+	}
+
+	header := file.FileHeader
+	header.CRC32 = 0
+	header.CompressedSize = 0
+	header.CompressedSize64 = 0
+	header.UncompressedSize = 0
+	header.UncompressedSize64 = 0
+
+	writer, err := zipWriter.CreateHeader(&header)
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(patched)
+	return err
+}
+
+func copyEntry(zipWriter *zip.Writer, file *zip.File) error {
+	writer, err := zipWriter.CreateHeader(&file.FileHeader)
+	if err != nil {
+		return err
+	}
+
+	if file.FileInfo().IsDir() {
+		return nil
+	}
+
+	reader, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	_, err = io.Copy(writer, reader)
+	return err
 }

@@ -7,11 +7,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"nfetcher/internal/archive"
 	"nfetcher/internal/config"
-	"nfetcher/internal/metadata"
 	"nfetcher/internal/nhentai"
 	"nfetcher/internal/notify"
 	"nfetcher/internal/storage"
@@ -19,13 +19,16 @@ import (
 )
 
 type Runner struct {
-	Config      config.Config
-	Client      *nhentai.Client
-	ImageClient Downloader
-	Logger      *log.Logger
-	NowFunc     func() time.Time
-	Mode        string
-	Notifier    notify.Sender
+	Config         config.Config
+	Client         *nhentai.Client
+	DownloadClient FileDownloader
+	Logger         *log.Logger
+	NowFunc        func() time.Time
+	Mode           string
+	Notifier       notify.Sender
+
+	downloadIssueMu     sync.Mutex
+	lastDownloadIssueAt time.Time
 }
 
 func (r *Runner) Run(ctx context.Context) (runErr error) {
@@ -72,7 +75,7 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 
 	runErrors := append([]error(nil), plan.Errors...)
 	for processResult := range ProcessGalleries(ctx, plan.Queued, r.Config.GalleryConcurrency, func(workerCtx context.Context, gallery QueuedGallery) error {
-		return r.processGallery(workerCtx, now, storyArc, gallery)
+		return r.processGallery(workerCtx, storyArc, gallery)
 	}) {
 		if processResult.Err != nil {
 			runErrors = append(runErrors, fmt.Errorf("process gallery %d: %w", processResult.QueuedGallery.Gallery.ID, processResult.Err))
@@ -111,7 +114,7 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 	return
 }
 
-func (r *Runner) processGallery(ctx context.Context, now time.Time, storyArc string, queued QueuedGallery) error {
+func (r *Runner) processGallery(ctx context.Context, storyArc string, queued QueuedGallery) error {
 	gallery := queued.Gallery
 	fileName := storage.GalleryFileName(gallery)
 	finalPath := storage.FinalGalleryPath(config.LibraryDirPath, fileName)
@@ -122,30 +125,23 @@ func (r *Runner) processGallery(ctx context.Context, now time.Time, storyArc str
 		return err
 	}
 
-	stageDir := storage.StageDir(now, gallery.ID)
-	if err := storage.EnsureDir(stageDir); err != nil {
-		return err
-	}
-	defer os.RemoveAll(stageDir)
-
-	if err := downloadPages(ctx, r.Client, r.ImageClient, gallery, stageDir, r.Config.PageConcurrency); err != nil {
-		return err
-	}
-
 	tempPath := storage.TempArchivePath(finalPath, gallery.ID)
 	if err := storage.EnsureDir(filepath.Dir(tempPath)); err != nil {
 		return err
 	}
 	defer os.Remove(tempPath)
 
-	comicInfo, err := metadata.MarshalComicInfo(metadata.BuildComicInfo(gallery, storyArc, queued.Rank))
+	downstreamPath := tempPath + ".official"
+	defer os.Remove(downstreamPath)
+
+	download, err := r.downloadGallery(ctx, gallery.ID)
 	if err != nil {
 		return err
 	}
-
-	if err := archive.WriteCBZ(stageDir, tempPath, []archive.ExtraFile{
-		{Name: "ComicInfo.xml", Data: comicInfo},
-	}); err != nil {
+	if err := r.DownloadClient.DownloadToFile(ctx, download.URL, downstreamPath); err != nil {
+		return err
+	}
+	if err := archive.RewriteCBZ(downstreamPath, tempPath, storyArc, queued.Rank); err != nil {
 		return err
 	}
 
@@ -154,6 +150,34 @@ func (r *Runner) processGallery(ctx context.Context, now time.Time, storyArc str
 	}
 
 	r.logger().Printf("gallery archive ok gallery_id=%d path=%s", gallery.ID, finalPath)
+	return nil
+}
+
+func (r *Runner) downloadGallery(ctx context.Context, galleryID int64) (nhentai.DownloadResponse, error) {
+	if err := r.waitForDownloadIssueSlot(ctx); err != nil {
+		return nhentai.DownloadResponse{}, err
+	}
+	return r.Client.DownloadGallery(ctx, galleryID)
+}
+
+func (r *Runner) waitForDownloadIssueSlot(ctx context.Context) error {
+	interval := r.Config.DownloadIssueInterval
+	if interval <= 0 {
+		return nil
+	}
+
+	r.downloadIssueMu.Lock()
+	defer r.downloadIssueMu.Unlock()
+
+	if !r.lastDownloadIssueAt.IsZero() {
+		next := r.lastDownloadIssueAt.Add(interval)
+		if delay := time.Until(next); delay > 0 {
+			if err := sleepContext(ctx, delay); err != nil {
+				return err
+			}
+		}
+	}
+	r.lastDownloadIssueAt = time.Now()
 	return nil
 }
 
@@ -190,4 +214,16 @@ func (r *Runner) finalizeRun(ctx context.Context, result summary.Result) {
 
 func formatStoryArc(day string) string {
 	return "nhentai-popular | " + day
+}
+
+func sleepContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

@@ -13,8 +13,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-const browserUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-
 type Shared struct {
 	httpClient *http.Client
 	limiter    *rate.Limiter
@@ -35,22 +33,25 @@ func (e StatusError) Error() string {
 	return fmt.Sprintf("unexpected HTTP status %d for %s", e.StatusCode, e.URL)
 }
 
-func BrowserUA() string {
-	return browserUA
-}
-
-func APIHeaders() http.Header {
+func APIHeaders(userAgent, apiKey string) http.Header {
 	return http.Header{
-		"User-Agent":      []string{browserUA},
-		"Accept":          []string{"application/json, text/plain, */*"},
-		"Accept-Language": []string{"zh-CN,zh;q=0.9,en;q=0.8"},
+		"User-Agent":    []string{userAgent},
+		"Authorization": []string{"Key " + apiKey},
+		"Accept":        []string{"application/json, text/plain, */*"},
 	}
 }
 
-func ImageHeaders() http.Header {
+func DownloadHeaders(userAgent string) http.Header {
 	return http.Header{
-		"User-Agent": []string{browserUA},
-		"Accept":     []string{"image/avif,image/webp,image/apng,image/*,*/*;q=0.8"},
+		"User-Agent": []string{userAgent},
+		"Accept":     []string{"application/octet-stream, application/zip, */*"},
+	}
+}
+
+func DefaultHeaders(userAgent string) http.Header {
+	return http.Header{
+		"User-Agent": []string{userAgent},
+		"Accept":     []string{"application/json, text/plain, */*"},
 	}
 }
 

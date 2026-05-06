@@ -7,6 +7,11 @@ type SearchResponse struct {
 	Result   []GallerySearch `json:"result"`
 }
 
+type DownloadResponse struct {
+	URL       string `json:"url"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
 func (r *SearchResponse) Normalize() {
 	for index := range r.Result {
 		r.Result[index].Normalize()
@@ -38,7 +43,6 @@ type Gallery struct {
 	NumPages   int          `json:"num_pages"`
 	UploadDate int64        `json:"upload_date"`
 	Tags       []Tag        `json:"tags"`
-	Pages      []Page       `json:"pages"`
 }
 
 type GalleryTitle struct {
@@ -50,9 +54,4 @@ type Tag struct {
 	ID   int64  `json:"id"`
 	Type string `json:"type"`
 	Name string `json:"name"`
-}
-
-type Page struct {
-	Number int    `json:"number"`
-	Path   string `json:"path"`
 }

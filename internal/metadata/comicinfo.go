@@ -1,63 +1,107 @@
 package metadata
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
+	"io"
+	"regexp"
 	"strconv"
 	"strings"
-
-	"nfetcher/internal/nhentai"
-	"nfetcher/internal/storage"
 )
 
-const adultsOnlyAgeRating = "Adults Only 18+"
-
-type ComicInfo struct {
-	XMLName        xml.Name `xml:"ComicInfo"`
-	Title          string   `xml:"Title,omitempty"`
-	StoryArc       string   `xml:"StoryArc,omitempty"`
-	StoryArcNumber string   `xml:"StoryArcNumber,omitempty"`
-	Web            string   `xml:"Web,omitempty"`
-	Tags           string   `xml:"Tags,omitempty"`
-	AgeRating      string   `xml:"AgeRating,omitempty"`
-}
-
-func BuildComicInfo(gallery nhentai.Gallery, storyArc string, rank int) ComicInfo {
-	title := storage.ChooseTitle(gallery)
-	return ComicInfo{
-		Title:          title,
-		StoryArc:       storyArc,
-		StoryArcNumber: strconv.Itoa(rank),
-		Web:            fmt.Sprintf("https://nhentai.net/g/%d/", gallery.ID),
-		Tags:           joinTagNames(gallery.Tags),
-		AgeRating:      adultsOnlyAgeRating,
-	}
-}
-
-func MarshalComicInfo(info ComicInfo) ([]byte, error) {
-	payload, err := xml.MarshalIndent(info, "", "  ")
-	if err != nil {
+func PatchComicInfo(data []byte, storyArc string, rank int) ([]byte, error) {
+	if err := validateComicInfo(data); err != nil {
 		return nil, err
 	}
 
-	data := append([]byte(xml.Header), payload...)
-	data = append(data, '\n')
-	return data, nil
+	text := string(data)
+	var found bool
+	text, found = replaceElementText(text, "StoryArc", storyArc)
+	if !found {
+		var err error
+		text, err = appendElement(text, "StoryArc", storyArc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	text, found = replaceElementText(text, "StoryArcNumber", strconv.Itoa(rank))
+	if !found {
+		var err error
+		text, err = appendElement(text, "StoryArcNumber", strconv.Itoa(rank))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	return []byte(text), nil
 }
 
-func joinTagNames(tags []nhentai.Tag) string {
-	if len(tags) == 0 {
-		return ""
-	}
+func validateComicInfo(data []byte) error {
+	decoder := xml.NewDecoder(bytes.NewReader(data))
+	foundRoot := false
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
 
-	names := make([]string, 0, len(tags))
-	for _, tag := range tags {
-		name := strings.TrimSpace(tag.Name)
-		if name == "" {
+		start, ok := token.(xml.StartElement)
+		if !ok {
 			continue
 		}
-		names = append(names, name)
+		if start.Name.Local != "ComicInfo" {
+			return fmt.Errorf("expected ComicInfo root, got %s", start.Name.Local)
+		}
+		foundRoot = true
+		break
+	}
+	if !foundRoot {
+		return fmt.Errorf("missing ComicInfo root")
+	}
+	return nil
+}
+
+func replaceElementText(text, name, value string) (string, bool) {
+	pattern := regexp.MustCompile(`(?s)<` + regexp.QuoteMeta(name) + `(?:\s[^>]*)?>.*?</` + regexp.QuoteMeta(name) + `>`)
+	location := pattern.FindStringIndex(text)
+	if location == nil {
+		return text, false
 	}
 
-	return strings.Join(names, ",")
+	segment := text[location[0]:location[1]]
+	startEnd := strings.IndexByte(segment, '>')
+	endStart := strings.LastIndex(segment, "</"+name+">")
+	if startEnd == -1 || endStart == -1 || startEnd >= endStart {
+		return text, false
+	}
+
+	patched := segment[:startEnd+1] + escapeText(value) + segment[endStart:]
+	return text[:location[0]] + patched + text[location[1]:], true
+}
+
+func appendElement(text, name, value string) (string, error) {
+	index := strings.LastIndex(text, "</ComicInfo>")
+	if index == -1 {
+		return "", fmt.Errorf("missing ComicInfo closing tag")
+	}
+
+	insert := fmt.Sprintf("  <%s>%s</%s>\n", name, escapeText(value), name)
+	if index > 0 && text[index-1] != '\n' {
+		insert = "\n" + insert
+	}
+	return text[:index] + insert + text[index:], nil
+}
+
+func escapeText(value string) string {
+	var buffer bytes.Buffer
+	_ = xml.EscapeText(&buffer, []byte(value))
+	return buffer.String()
 }
