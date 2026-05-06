@@ -16,10 +16,10 @@
 - 排序方式：`popular-today`
 - 抓取页码：第 `1` 页
 - 保留天数：`7`
+- download URL 签发间隔：`30s`
 - 全局去重：同一 `gallery_id` 只保留一份归档
-- 输出格式：`.cbz`，并附带基础 `ComicInfo.xml`
-- `StoryArc`：`nhentai-popular | YYYY-MM-DD`
-- `StoryArcNumber`：当天榜单排名
+- 输出格式：`.cbz`，通过官方 download endpoint 下载
+- `ComicInfo.xml`：保留官方内容，只补 `StoryArc` / `StoryArcNumber`
 
 ## 快速开始
 
@@ -47,7 +47,20 @@ docker build \
 
 其余参数同理。
 
-### 2. 先跑一次 `dry-run`
+### 2. 配置 API key
+
+在 nhentai account settings 中创建 API key，然后填写到 `compose.yaml`：
+
+```yaml
+NHENTAI_API_KEY: "your-api-key"
+NFETCHER_USER_AGENT: "nfetcher/1.0 (https://github.com/Yangmoooo/nfetcher)"
+```
+
+nfetcher 会使用官方 `POST /api/v2/galleries/{id}/download?format=cbz` 下载归档，不再逐页抓取 CDN 图片。
+
+默认 `DOWNLOAD_ISSUE_INTERVAL=30s`，用于匹配官方 `10/5min` 的 download URL 签发限流。
+
+### 3. 先跑一次 `dry-run`
 
 ```bash
 docker compose run --rm nfetcher dry-run
@@ -58,15 +71,15 @@ docker compose run --rm nfetcher dry-run
 - 检查库目录、代理、通知等基础配置
 - 请求搜索和详情接口
 - 计算去重结果和本次待抓队列
-- 不实际下载图片，也不会写入 `.cbz`
+- 不实际下载归档，也不会写入 `.cbz`
 
-### 3. 手动实际抓取一次
+### 4. 手动实际抓取一次
 
 ```bash
 docker compose run --rm nfetcher run-once
 ```
 
-### 4. 常驻运行
+### 5. 常驻运行
 
 ```bash
 docker compose up -d
@@ -138,7 +151,6 @@ BARK_SOUND=paymentsuccess
 
 - 文件名会保留 `gallery_id`
 - 同一 `gallery_id` 在整个库里只会保留一份
-- 每个 `.cbz` 都会写入基础 `ComicInfo.xml`
-- `Title` 使用首选标题，不再写入 `Series`
+- 每个 `.cbz` 保留官方 `ComicInfo.xml`，只补 `StoryArc` 和 `StoryArcNumber`
 - `StoryArc` 使用 `nhentai-popular | YYYY-MM-DD`
 - 去重和 retention 都直接扫描现有 `.cbz`，不依赖额外状态文件
