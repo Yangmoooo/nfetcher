@@ -46,7 +46,7 @@ func TestScanLibraryIndexFallsBackToComicInfoWeb(t *testing.T) {
 	archivePath := filepath.Join(root, "No ID Here.cbz")
 	writeTestCBZ(t, archivePath, `<?xml version="1.0" encoding="UTF-8"?>
 <ComicInfo>
-  <StoryArc>nhentai-popular | 2026-04-05</StoryArc>
+  <StoryArc>2026-04-05</StoryArc>
   <Web>https://nhentai.net/g/641154/</Web>
 </ComicInfo>
 `)
@@ -76,7 +76,7 @@ func TestCleanupExpiredFromIndex(t *testing.T) {
 `)
 	writeTestCBZ(t, keepPath, `<?xml version="1.0" encoding="UTF-8"?>
 <ComicInfo>
-  <StoryArc>nhentai-popular | 2026-04-08</StoryArc>
+  <StoryArc>popular | 2026-04-08</StoryArc>
   <Web>https://nhentai.net/g/641156/</Web>
 </ComicInfo>
 `)

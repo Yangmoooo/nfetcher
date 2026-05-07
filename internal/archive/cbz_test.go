@@ -21,7 +21,7 @@ func TestRewriteCBZPatchesComicInfoAndKeepsEntries(t *testing.T) {
 		"001.jpg": "image-data",
 	})
 
-	if err := RewriteCBZ(srcPath, dstPath, "nhentai-popular | 2026-05-06", 2); err != nil {
+	if err := RewriteCBZ(srcPath, dstPath, "2026-05-06", 2); err != nil {
 		t.Fatalf("rewrite cbz: %v", err)
 	}
 
@@ -33,7 +33,7 @@ func TestRewriteCBZPatchesComicInfoAndKeepsEntries(t *testing.T) {
 	if !strings.Contains(comicInfo, "<Title>Official Title</Title>") {
 		t.Fatalf("expected official ComicInfo fields to be preserved, got %s", comicInfo)
 	}
-	if !strings.Contains(comicInfo, "<StoryArc>nhentai-popular | 2026-05-06</StoryArc>") {
+	if !strings.Contains(comicInfo, "<StoryArc>2026-05-06</StoryArc>") {
 		t.Fatalf("expected StoryArc patch, got %s", comicInfo)
 	}
 	if !strings.Contains(comicInfo, "<StoryArcNumber>2</StoryArcNumber>") {
@@ -46,7 +46,7 @@ func TestRewriteCBZRequiresComicInfo(t *testing.T) {
 	dstPath := filepath.Join(t.TempDir(), "patched.cbz")
 	writeTestCBZ(t, srcPath, map[string]string{"001.jpg": "image-data"})
 
-	err := RewriteCBZ(srcPath, dstPath, "nhentai-popular | 2026-05-06", 2)
+	err := RewriteCBZ(srcPath, dstPath, "2026-05-06", 2)
 	if err == nil || !strings.Contains(err.Error(), "ComicInfo.xml not found") {
 		t.Fatalf("expected missing ComicInfo error, got %v", err)
 	}

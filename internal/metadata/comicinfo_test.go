@@ -15,7 +15,7 @@ func TestPatchComicInfoAddsStoryArcFields(t *testing.T) {
 </ComicInfo>
 `)
 
-	data, err := PatchComicInfo(input, "nhentai-popular | 2026-05-06", 7)
+	data, err := PatchComicInfo(input, "2026-05-06", 7)
 	if err != nil {
 		t.Fatalf("patch comic info: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestPatchComicInfoAddsStoryArcFields(t *testing.T) {
 		"<Series>original</Series>",
 		"<Translator>todaya</Translator>",
 		"<Tags>big breasts, sole female</Tags>",
-		"<StoryArc>nhentai-popular | 2026-05-06</StoryArc>",
+		"<StoryArc>2026-05-06</StoryArc>",
 		"<StoryArcNumber>7</StoryArcNumber>",
 	} {
 		if !strings.Contains(text, expected) {
@@ -45,7 +45,7 @@ func TestPatchComicInfoReplacesStoryArcFields(t *testing.T) {
 </ComicInfo>
 `)
 
-	data, err := PatchComicInfo(input, "nhentai-popular | 2026-05-06", 3)
+	data, err := PatchComicInfo(input, "2026-05-06", 3)
 	if err != nil {
 		t.Fatalf("patch comic info: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestPatchComicInfoReplacesStoryArcFields(t *testing.T) {
 	if strings.Contains(text, "<StoryArc>old</StoryArc>") || strings.Contains(text, "<StoryArcNumber>99</StoryArcNumber>") {
 		t.Fatalf("expected old StoryArc fields to be replaced, got %s", text)
 	}
-	if !strings.Contains(text, "<StoryArc>nhentai-popular | 2026-05-06</StoryArc>") {
+	if !strings.Contains(text, "<StoryArc>2026-05-06</StoryArc>") {
 		t.Fatalf("expected StoryArc replacement, got %s", text)
 	}
 	if !strings.Contains(text, "<StoryArcNumber>3</StoryArcNumber>") {

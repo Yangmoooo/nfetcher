@@ -213,7 +213,7 @@ func (r *Runner) finalizeRun(ctx context.Context, result summary.Result) {
 }
 
 func formatStoryArc(day string) string {
-	return "nhentai-popular | " + day
+	return day
 }
 
 func sleepContext(ctx context.Context, delay time.Duration) error {
