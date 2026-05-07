@@ -152,5 +152,5 @@ BARK_SOUND=paymentsuccess
 - 文件名会保留 `gallery_id`
 - 同一 `gallery_id` 在整个库里只会保留一份
 - 每个 `.cbz` 保留官方 `ComicInfo.xml`，只补 `StoryArc` 和 `StoryArcNumber`
-- `StoryArc` 使用 `nhentai-popular | YYYY-MM-DD`
+- `StoryArc` 使用 `YYYY-MM-DD`
 - 去重和 retention 都直接扫描现有 `.cbz`，不依赖额外状态文件
