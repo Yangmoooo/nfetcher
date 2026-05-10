@@ -10,6 +10,9 @@ func TestPatchComicInfoAddsStoryArcFields(t *testing.T) {
 <ComicInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Title>Official Title</Title>
   <Series>original</Series>
+  <AlternateSeries>Official Title</AlternateSeries>
+  <AlternateNumber>1</AlternateNumber>
+  <AlternateCount>1</AlternateCount>
   <Translator>todaya</Translator>
   <Tags>big breasts, sole female</Tags>
 </ComicInfo>
@@ -32,6 +35,11 @@ func TestPatchComicInfoAddsStoryArcFields(t *testing.T) {
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("expected %q in patched ComicInfo, got %s", expected, text)
+		}
+	}
+	for _, unexpected := range []string{"<AlternateSeries>", "<AlternateNumber>", "<AlternateCount>"} {
+		if strings.Contains(text, unexpected) {
+			t.Fatalf("expected %q to be removed, got %s", unexpected, text)
 		}
 	}
 }
