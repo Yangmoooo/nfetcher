@@ -30,8 +30,10 @@ type Config struct {
 	BarkSound             string
 }
 
-const LibraryDirPath = "/nhentai-popular"
-const defaultUserAgent = "nfetcher/1.0 (https://github.com/Yangmoooo/nfetcher)"
+const (
+	LibraryDirPath   = "/nhentai-popular"
+	defaultUserAgent = "nfetcher/1.0 (https://github.com/Yangmoooo/nfetcher)"
+)
 
 func Load() (Config, error) {
 	cfg := Config{
@@ -52,7 +54,7 @@ func Load() (Config, error) {
 		UserAgent:             strings.TrimSpace(getenv("NFETCHER_USER_AGENT", defaultUserAgent)),
 		BarkBaseURL:           strings.TrimSpace(getenv("BARK_BASE_URL", "")),
 		BarkDeviceKey:         strings.TrimSpace(getenv("BARK_DEVICE_KEY", "")),
-		BarkSound:             strings.TrimSpace(getenv("BARK_SOUND", "paymentsuccess")),
+		BarkSound:             strings.TrimSpace(getenv("BARK_SOUND", "healthnotification")),
 	}
 
 	if _, err := time.LoadLocation(cfg.Timezone); err != nil {
