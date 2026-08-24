@@ -91,6 +91,12 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 			FetchedDate: day,
 		})
 	}
+	if err := ctx.Err(); err != nil {
+		runErrors = append(runErrors, err)
+		runSummary.ErrorCount = len(runErrors)
+		runErr = errors.Join(runErrors...)
+		return
+	}
 
 	removedFiles, err := CleanupExpired(&index, now, r.Config.RetentionDays)
 	if err != nil {
@@ -100,6 +106,9 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 		for _, removedFile := range removedFiles {
 			r.logger().Printf("retention remove path=%s", removedFile)
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		runErrors = append(runErrors, err)
 	}
 
 	runSummary.ErrorCount = len(runErrors)
