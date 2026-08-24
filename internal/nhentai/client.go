@@ -50,26 +50,6 @@ func (c *Client) Search(ctx context.Context, query, sort string, page int) (Sear
 	return out, nil
 }
 
-func (c *Client) GetGallery(ctx context.Context, id int64) (Gallery, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v2/galleries/%d", c.apiBase, id), nil)
-	if err != nil {
-		return Gallery{}, err
-	}
-
-	resp, err := c.apiClient.Do(ctx, req)
-	if err != nil {
-		return Gallery{}, err
-	}
-	defer resp.Body.Close()
-
-	var out Gallery
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return Gallery{}, err
-	}
-
-	return out, nil
-}
-
 func (c *Client) DownloadGallery(ctx context.Context, id int64) (DownloadResponse, error) {
 	values := url.Values{}
 	values.Set("format", "cbz")

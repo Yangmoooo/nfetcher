@@ -18,7 +18,6 @@ type Config struct {
 	SearchSort            string
 	SearchPage            int
 	GalleryConcurrency    int
-	DetailConcurrency     int
 	RequestRPS            float64
 	RequestBurst          int
 	DownloadIssueInterval time.Duration
@@ -44,7 +43,6 @@ func Load() (Config, error) {
 		SearchSort:            getenv("SEARCH_SORT", "popular-today"),
 		SearchPage:            getenvInt("SEARCH_PAGE", 1),
 		GalleryConcurrency:    getenvInt("GALLERY_CONCURRENCY", 3),
-		DetailConcurrency:     getenvInt("DETAIL_CONCURRENCY", 5),
 		RequestRPS:            getenvFloat("REQUEST_RPS", 4),
 		RequestBurst:          getenvInt("REQUEST_BURST", 8),
 		DownloadIssueInterval: getenvDuration("DOWNLOAD_ISSUE_INTERVAL", 30*time.Second),
@@ -68,8 +66,6 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("RETENTION_DAYS must be >= 1")
 	case cfg.GalleryConcurrency < 1:
 		return Config{}, fmt.Errorf("GALLERY_CONCURRENCY must be >= 1")
-	case cfg.DetailConcurrency < 1:
-		return Config{}, fmt.Errorf("DETAIL_CONCURRENCY must be >= 1")
 	case cfg.RequestRPS <= 0:
 		return Config{}, fmt.Errorf("REQUEST_RPS must be > 0")
 	case cfg.RequestBurst < 1:

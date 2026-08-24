@@ -15,7 +15,6 @@ services:
       SEARCH_SORT: popular-today
       SEARCH_PAGE: 1
       GALLERY_CONCURRENCY: 1
-      DETAIL_CONCURRENCY: 2
       REQUEST_RPS: 1
       REQUEST_BURST: 2
       DOWNLOAD_ISSUE_INTERVAL: 30s

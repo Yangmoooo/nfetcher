@@ -30,7 +30,6 @@ type Result struct {
 	Queued            int
 	ArchivedOK        int
 	ArchivedFailed    int
-	DetailErrors      int
 	RemovedFiles      int
 	PreflightWarnings int
 	PreflightFailures int
@@ -48,7 +47,7 @@ func (r Result) Status() Status {
 		return StatusPartial
 	}
 
-	if r.Mode == "dry-run" && (r.SearchResults > 0 || r.Queued > 0 || r.DetailErrors > 0) {
+	if r.Mode == "dry-run" && (r.SearchResults > 0 || r.Queued > 0) {
 		return StatusPartial
 	}
 
@@ -97,7 +96,7 @@ func (r Result) FailedGalleryIDsText(limit int) string {
 
 func (r Result) LogLine() string {
 	return fmt.Sprintf(
-		"summary status=%s mode=%s date=%s at=%q query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d archived_ok=%d archived_failed=%d detail_errors=%d removed_files=%d preflight_warnings=%d preflight_failures=%d error_count=%d duration=%s failed_gallery_ids=%q",
+		"summary status=%s mode=%s date=%s at=%q query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d archived_ok=%d archived_failed=%d removed_files=%d preflight_warnings=%d preflight_failures=%d error_count=%d duration=%s failed_gallery_ids=%q",
 		r.Status(),
 		r.Mode,
 		r.Date,
@@ -110,7 +109,6 @@ func (r Result) LogLine() string {
 		r.Queued,
 		r.ArchivedOK,
 		r.ArchivedFailed,
-		r.DetailErrors,
 		r.RemovedFiles,
 		r.PreflightWarnings,
 		r.PreflightFailures,

@@ -12,12 +12,6 @@ type FileDownloader interface {
 	DownloadToFile(ctx context.Context, rawURL, dstPath string) error
 }
 
-type GalleryResult struct {
-	ID      int64
-	Gallery nhentai.Gallery
-	Err     error
-}
-
 type QueuedGallery struct {
 	Gallery nhentai.Gallery
 	Rank    int
@@ -26,45 +20,6 @@ type QueuedGallery struct {
 type GalleryProcessResult struct {
 	QueuedGallery QueuedGallery
 	Err           error
-}
-
-func FetchDetails(ctx context.Context, client *nhentai.Client, ids []int64, workers int) <-chan GalleryResult {
-	jobs := make(chan int64)
-	results := make(chan GalleryResult)
-
-	var workersWG sync.WaitGroup
-	for workerIndex := 0; workerIndex < workers; workerIndex++ {
-		workersWG.Add(1)
-		go func() {
-			defer workersWG.Done()
-			for id := range jobs {
-				gallery, err := client.GetGallery(ctx, id)
-				select {
-				case <-ctx.Done():
-					return
-				case results <- GalleryResult{ID: id, Gallery: gallery, Err: err}:
-				}
-			}
-		}()
-	}
-
-	go func() {
-		defer close(jobs)
-		for _, id := range ids {
-			select {
-			case <-ctx.Done():
-				return
-			case jobs <- id:
-			}
-		}
-	}()
-
-	go func() {
-		workersWG.Wait()
-		close(results)
-	}()
-
-	return results
 }
 
 func SortQueuedGalleriesByPageCountDesc(galleries []QueuedGallery) {

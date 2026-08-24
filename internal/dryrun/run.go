@@ -66,11 +66,9 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 	result.SearchResults = plan.SearchResultsCount
 	result.Duplicates = len(plan.Duplicates)
 	result.Queued = len(plan.Queued)
-	result.DetailErrors = len(plan.Errors)
-	result.FailedGalleryIDs = append(result.FailedGalleryIDs, plan.DetailFailedIDs...)
 
 	e.logger().Printf(
-		"plan summary date=%s at=%q query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d detail_errors=%d",
+		"plan summary date=%s at=%q query=%q sort=%q page=%d search_results=%d duplicates=%d queued=%d",
 		day,
 		result.StartedAtText(),
 		e.Config.SearchQuery,
@@ -79,7 +77,6 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 		plan.SearchResultsCount,
 		len(plan.Duplicates),
 		len(plan.Queued),
-		len(plan.Errors),
 	)
 
 	for _, duplicate := range plan.Duplicates {
@@ -104,14 +101,10 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 		)
 	}
 
-	for _, planErr := range plan.Errors {
-		e.logger().Printf("plan detail_error error=%v", planErr)
-	}
-
 	e.logger().Printf("dry-run finish date=%s at=%q queued=%d duplicates=%d", day, result.StartedAtText(), len(plan.Queued), len(plan.Duplicates))
 
-	result.ErrorCount = report.FailureCount() + len(plan.Errors)
-	runErr = errors.Join(report.Failure(), errors.Join(plan.Errors...))
+	result.ErrorCount = report.FailureCount()
+	runErr = report.Failure()
 	return
 }
 

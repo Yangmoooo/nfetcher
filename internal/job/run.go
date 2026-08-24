@@ -70,10 +70,8 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 	runSummary.SearchResults = plan.SearchResultsCount
 	runSummary.Duplicates = len(plan.Duplicates)
 	runSummary.Queued = len(plan.Queued)
-	runSummary.DetailErrors = len(plan.Errors)
-	runSummary.FailedGalleryIDs = append(runSummary.FailedGalleryIDs, plan.DetailFailedIDs...)
 
-	runErrors := append([]error(nil), plan.Errors...)
+	runErrors := make([]error, 0)
 	for processResult := range ProcessGalleries(ctx, plan.Queued, r.Config.GalleryConcurrency, func(workerCtx context.Context, gallery QueuedGallery) error {
 		return r.processGallery(workerCtx, storyArc, gallery)
 	}) {

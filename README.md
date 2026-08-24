@@ -69,7 +69,7 @@ docker compose run --rm nfetcher dry-run
 `dry-run` 会：
 
 - 检查库目录、代理、通知等基础配置
-- 请求搜索和详情接口
+- 请求搜索接口
 - 计算去重结果和本次待抓队列
 - 不实际下载归档，也不会写入 `.cbz`
 

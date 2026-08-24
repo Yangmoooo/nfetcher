@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"nfetcher/internal/config"
+	"nfetcher/internal/nhentai"
 	"nfetcher/internal/storage"
 )
 
@@ -17,8 +18,6 @@ type PlanResult struct {
 	SearchResultsCount int
 	Duplicates         []DuplicateGallery
 	Queued             []QueuedGallery
-	Errors             []error
-	DetailFailedIDs    []int64
 }
 
 type PlanOptions struct {
@@ -41,65 +40,56 @@ func (r *Runner) BuildPlan(ctx context.Context, options PlanOptions) (PlanResult
 		return PlanResult{}, fmt.Errorf("search galleries: %w", err)
 	}
 
-	ids := make([]int64, 0, len(searchResult.Result))
-	searchRanks := make(map[int64]int, len(searchResult.Result))
-	for _, item := range searchResult.Result {
-		ids = append(ids, item.ID)
-		searchRanks[item.ID] = len(ids)
-	}
-
 	if options.Log {
-		r.logger().Printf("search results count=%d", len(ids))
+		r.logger().Printf("search results count=%d", len(searchResult.Result))
 	}
 
 	plan := PlanResult{
-		SearchResultsCount: len(ids),
-		Queued:             make([]QueuedGallery, 0, len(ids)),
+		SearchResultsCount: len(searchResult.Result),
+		Queued:             make([]QueuedGallery, 0, len(searchResult.Result)),
 		Duplicates:         make([]DuplicateGallery, 0),
-		Errors:             make([]error, 0),
-		DetailFailedIDs:    make([]int64, 0),
 	}
 
-	scheduledGalleryIDs := make(map[int64]struct{}, len(ids))
-	for result := range FetchDetails(ctx, r.Client, ids, r.Config.DetailConcurrency) {
-		if result.Err != nil {
-			plan.Errors = append(plan.Errors, fmt.Errorf("gallery %d: %w", result.ID, result.Err))
-			plan.DetailFailedIDs = append(plan.DetailFailedIDs, result.ID)
-			if options.Log {
-				r.logger().Printf("gallery detail failed gallery_id=%d error=%v", result.ID, result.Err)
-			}
-			continue
+	scheduledGalleryIDs := make(map[int64]struct{}, len(searchResult.Result))
+	for rank, item := range searchResult.Result {
+		if err := ctx.Err(); err != nil {
+			return PlanResult{}, err
 		}
 
-		rank := searchRanks[result.Gallery.ID]
+		gallery := nhentai.Gallery{
+			ID:       item.ID,
+			MediaID:  item.MediaID,
+			Title:    item.Title,
+			NumPages: item.NumPages,
+		}
 		queued := QueuedGallery{
-			Gallery: result.Gallery,
-			Rank:    rank,
+			Gallery: gallery,
+			Rank:    rank + 1,
 		}
 
 		if options.Log {
-			r.logger().Printf("gallery detail ok gallery_id=%d pages=%d", result.Gallery.ID, result.Gallery.NumPages)
+			r.logger().Printf("gallery search item gallery_id=%d pages=%d", gallery.ID, gallery.NumPages)
 		}
 
-		if existingPath, exists := existingGalleryPaths[result.Gallery.ID]; exists {
+		if existingPath, exists := existingGalleryPaths[gallery.ID]; exists {
 			plan.Duplicates = append(plan.Duplicates, DuplicateGallery{
 				QueuedGallery: queued,
 				ExistingPath:  existingPath,
 			})
 			if options.Log {
-				r.logger().Printf("skip duplicate gallery_id=%d existing_path=%s", result.Gallery.ID, existingPath)
+				r.logger().Printf("skip duplicate gallery_id=%d existing_path=%s", gallery.ID, existingPath)
 			}
 			continue
 		}
 
-		if _, exists := scheduledGalleryIDs[result.Gallery.ID]; exists {
+		if _, exists := scheduledGalleryIDs[gallery.ID]; exists {
 			if options.Log {
-				r.logger().Printf("skip duplicate in-run gallery_id=%d", result.Gallery.ID)
+				r.logger().Printf("skip duplicate in-run gallery_id=%d", gallery.ID)
 			}
 			continue
 		}
 
-		scheduledGalleryIDs[result.Gallery.ID] = struct{}{}
+		scheduledGalleryIDs[gallery.ID] = struct{}{}
 		plan.Queued = append(plan.Queued, queued)
 	}
 

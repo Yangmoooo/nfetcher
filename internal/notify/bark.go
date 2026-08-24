@@ -90,16 +90,13 @@ func formatBarkBody(result summary.Result) string {
 	if result.Mode == "dry-run" {
 		lines = append(
 			lines,
-			fmt.Sprintf("Detail | Warn | Fail: %d | %d | %d", result.DetailErrors, result.PreflightWarnings, result.PreflightFailures),
+			fmt.Sprintf("Warn | Fail: %d | %d", result.PreflightWarnings, result.PreflightFailures),
 		)
 	} else {
 		lines = append(
 			lines,
 			fmt.Sprintf("Archived | Failed: %d | %d", result.ArchivedOK, result.ArchivedFailed),
 		)
-		if result.DetailErrors > 0 {
-			lines = append(lines, fmt.Sprintf("Detail errors: %d", result.DetailErrors))
-		}
 	}
 
 	lines = append(lines, fmt.Sprintf("Duration: %s", result.DurationText()))
