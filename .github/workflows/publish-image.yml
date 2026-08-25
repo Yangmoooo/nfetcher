@@ -62,11 +62,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          awk -v tag="$TAG" '
+            index($0, "## [" tag "]") == 1 { found=1; next }
+            found && index($0, "## ") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md > "$NOTES_FILE"
+
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "Missing CHANGELOG.md entry for $TAG" >&2
+            exit 1
+          fi
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists"
+            gh release edit "$TAG" \
+              --notes-file "$NOTES_FILE" \
+              --title "$TAG"
           else
             gh release create "$TAG" \
               --verify-tag \
-              --generate-notes \
+              --notes-file "$NOTES_FILE" \
               --title "$TAG"
           fi
