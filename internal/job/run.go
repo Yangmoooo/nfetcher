@@ -51,7 +51,7 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 
 	r.logger().Printf("job start date=%s at=%q query=%q sort=%q page=%d", day, runSummary.StartedAtText(), r.Config.SearchQuery, r.Config.SearchSort, r.Config.SearchPage)
 
-	index, err := storage.ScanLibraryIndex(config.LibraryDirPath)
+	index, err := storage.ScanLibraryIndex(r.Config.LibraryPath())
 	if err != nil {
 		runSummary.ErrorCount = 1
 		runErr = fmt.Errorf("scan library index: %w", err)
@@ -84,7 +84,7 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 		}
 
 		runSummary.ArchivedOK++
-		finalPath := storage.FinalGalleryPath(config.LibraryDirPath, storage.GalleryFileName(processResult.QueuedGallery.Gallery))
+		finalPath := storage.FinalGalleryPath(r.Config.LibraryPath(), storage.GalleryFileName(processResult.QueuedGallery.Gallery))
 		index.Archives = append(index.Archives, storage.LibraryArchive{
 			Path:        finalPath,
 			GalleryID:   processResult.QueuedGallery.Gallery.ID,
@@ -124,7 +124,7 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 func (r *Runner) processGallery(ctx context.Context, storyArc string, queued QueuedGallery) error {
 	gallery := queued.Gallery
 	fileName := storage.GalleryFileName(gallery)
-	finalPath := storage.FinalGalleryPath(config.LibraryDirPath, fileName)
+	finalPath := storage.FinalGalleryPath(r.Config.LibraryPath(), fileName)
 	if _, err := os.Stat(finalPath); err == nil {
 		r.logger().Printf("skip existing gallery_id=%d path=%s", gallery.ID, finalPath)
 		return nil

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"nfetcher/internal/config"
 	"nfetcher/internal/nhentai"
 	"nfetcher/internal/storage"
 )
@@ -29,7 +28,7 @@ func (r *Runner) BuildPlan(ctx context.Context, options PlanOptions) (PlanResult
 	existingGalleryPaths := options.ExistingGalleryPaths
 	if existingGalleryPaths == nil {
 		var err error
-		existingGalleryPaths, err = storage.ExistingGalleryPaths(config.LibraryDirPath)
+		existingGalleryPaths, err = storage.ExistingGalleryPaths(r.Config.LibraryPath())
 		if err != nil {
 			return PlanResult{}, fmt.Errorf("scan existing library: %w", err)
 		}

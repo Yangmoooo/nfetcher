@@ -94,38 +94,39 @@ func checkTimezone(cfg config.Config) Check {
 }
 
 func checkLibraryDir(cfg config.Config) Check {
-	info, err := os.Stat(config.LibraryDirPath)
+	libraryPath := cfg.LibraryPath()
+	info, err := os.Stat(libraryPath)
 	switch {
 	case err == nil:
 		if !info.IsDir() {
 			return Check{
 				Name:   "library_dir",
 				Status: StatusFail,
-				Detail: fmt.Sprintf("%s exists but is not a directory", config.LibraryDirPath),
+				Detail: fmt.Sprintf("%s exists but is not a directory", libraryPath),
 			}
 		}
 
-		if err := probeWritable(config.LibraryDirPath); err != nil {
+		if err := probeWritable(libraryPath); err != nil {
 			return Check{
 				Name:   "library_dir",
 				Status: StatusFail,
-				Detail: fmt.Sprintf("%s is not writable: %v", config.LibraryDirPath, err),
+				Detail: fmt.Sprintf("%s is not writable: %v", libraryPath, err),
 			}
 		}
 
 		return Check{
 			Name:   "library_dir",
 			Status: StatusOK,
-			Detail: fmt.Sprintf("%s exists and is writable", config.LibraryDirPath),
+			Detail: fmt.Sprintf("%s exists and is writable", libraryPath),
 		}
 	case os.IsNotExist(err):
-		parentDir := filepath.Dir(config.LibraryDirPath)
+		parentDir := filepath.Dir(libraryPath)
 		parentInfo, parentErr := os.Stat(parentDir)
 		if parentErr != nil {
 			return Check{
 				Name:   "library_dir",
 				Status: StatusFail,
-				Detail: fmt.Sprintf("%s does not exist and parent %s is unavailable: %v", config.LibraryDirPath, parentDir, parentErr),
+				Detail: fmt.Sprintf("%s does not exist and parent %s is unavailable: %v", libraryPath, parentDir, parentErr),
 			}
 		}
 
@@ -141,14 +142,14 @@ func checkLibraryDir(cfg config.Config) Check {
 			return Check{
 				Name:   "library_dir",
 				Status: StatusFail,
-				Detail: fmt.Sprintf("%s does not exist and parent %s is not writable: %v", config.LibraryDirPath, parentDir, err),
+				Detail: fmt.Sprintf("%s does not exist and parent %s is not writable: %v", libraryPath, parentDir, err),
 			}
 		}
 
 		return Check{
 			Name:   "library_dir",
 			Status: StatusOK,
-			Detail: fmt.Sprintf("%s does not exist yet, but parent %s is writable", config.LibraryDirPath, parentDir),
+			Detail: fmt.Sprintf("%s does not exist yet, but parent %s is writable", libraryPath, parentDir),
 		}
 	default:
 		return Check{

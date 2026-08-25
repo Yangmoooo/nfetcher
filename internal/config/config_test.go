@@ -7,26 +7,44 @@ import (
 )
 
 func TestLibraryDirPathIsFixed(t *testing.T) {
-	t.Setenv("LIBRARY_DIR", "/tmp/should-not-apply")
+	if LibraryDirPath != "/nhentai" {
+		t.Fatalf("expected default library dir path, got %q", LibraryDirPath)
+	}
+}
 
-	if LibraryDirPath != "/nhentai-popular" {
-		t.Fatalf("expected fixed library dir path, got %q", LibraryDirPath)
+func TestLoadReadsLibraryDir(t *testing.T) {
+	t.Setenv("TZ", "UTC")
+	t.Setenv("NF_NHENTAI_API_KEY", "test-key")
+	t.Setenv("NF_LIBRARY_DIR", "./output")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.LibraryDir != "./output" {
+		t.Fatalf("expected library dir ./output, got %q", cfg.LibraryDir)
+	}
+}
+
+func TestLibraryPathFallsBackToContainerDefault(t *testing.T) {
+	if got := (Config{}).LibraryPath(); got != LibraryDirPath {
+		t.Fatalf("expected default library path %q, got %q", LibraryDirPath, got)
 	}
 }
 
 func TestLoadRequiresNHentaiAPIKey(t *testing.T) {
 	t.Setenv("TZ", "UTC")
-	t.Setenv("NHENTAI_API_KEY", "")
+	t.Setenv("NF_NHENTAI_API_KEY", "")
 
 	_, err := Load()
-	if err == nil || !strings.Contains(err.Error(), "NHENTAI_API_KEY is required") {
+	if err == nil || !strings.Contains(err.Error(), "NF_NHENTAI_API_KEY is required") {
 		t.Fatalf("expected API key error, got %v", err)
 	}
 }
 
 func TestLoadReadsNHentaiAuthConfig(t *testing.T) {
 	t.Setenv("TZ", "UTC")
-	t.Setenv("NHENTAI_API_KEY", " test-key ")
+	t.Setenv("NF_NHENTAI_API_KEY", " test-key ")
 	t.Setenv("NFETCHER_USER_AGENT", " nfetcher/test ")
 	t.Setenv("DOWNLOAD_ISSUE_INTERVAL", "2m")
 

@@ -1,0 +1,36 @@
+services:
+  nfetcher:
+    image: local/nfetcher:latest
+    container_name: nfetcher
+    restart: unless-stopped
+    # user: 1000:1000
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Shanghai
+      RUN_MODE: daemon
+      SCHEDULE_CRON: 30 17 * * *
+      RETENTION_DAYS: 7
+      NFETCHER_USER_AGENT: "nfetcher (https://github.com/Yangmoooo/nfetcher)"
+      SEARCH_QUERY: language:chinese
+      SEARCH_SORT: popular-today
+      SEARCH_PAGE: 1
+      GALLERY_CONCURRENCY: 1
+      REQUEST_RPS: 1
+      REQUEST_BURST: 2
+      DOWNLOAD_ISSUE_INTERVAL: 30s
+      HTTP_TIMEOUT: 60s
+      RETRY_MAX: 3
+      # HTTP_PROXY: "http://host.docker.internal:7890"
+      # HTTPS_PROXY: "http://host.docker.internal:7890"
+      # NO_PROXY: ""
+    volumes:
+      # Keep the container target equal to NF_LIBRARY_DIR=/nhentai in .env.
+      - ./output:/nhentai
+      # Komga layout (replace the line above with this one):
+      # - /komga/library/nhentai/_oneshots:/nhentai
+
+    # If the host provides a proxy, fill these values above. For Docker
+    # Desktop/Linux host-gateway setups, you may also add:
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"

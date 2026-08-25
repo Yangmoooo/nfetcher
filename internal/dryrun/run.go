@@ -47,7 +47,7 @@ func (e *Executor) Run(ctx context.Context) (runErr error) {
 		e.logger().Printf("preflight status=%s check=%s detail=%q", check.Status, check.Name, check.Detail)
 	}
 
-	index, err := storage.ScanLibraryIndex(config.LibraryDirPath)
+	index, err := storage.ScanLibraryIndex(e.Config.LibraryPath())
 	if err != nil {
 		result.ErrorCount = report.FailureCount() + 1
 		runErr = errors.Join(report.Failure(), err)
