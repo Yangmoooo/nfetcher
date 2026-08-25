@@ -6,11 +6,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"nfetcher/internal/nhentai"
 )
 
-const maxFileNameRunes = 200
+const maxFileNameBytes = 255
 
 var invalidChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]+`)
 var multiSpace = regexp.MustCompile(`\s+`)
@@ -43,12 +44,12 @@ func GalleryFileName(gallery nhentai.Gallery) string {
 	}
 
 	suffix := fmt.Sprintf(" - %s.cbz", id)
-	available := maxFileNameRunes - len([]rune(suffix))
+	available := maxFileNameBytes - len([]byte(suffix))
 	if available < 1 {
 		return id + ".cbz"
 	}
 
-	title = truncateRunes(title, available)
+	title = truncateUTF8Bytes(title, available)
 	return title + suffix
 }
 
@@ -57,10 +58,19 @@ func GalleryDirName(gallery nhentai.Gallery) string {
 	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
-func truncateRunes(value string, limit int) string {
-	runes := []rune(value)
-	if len(runes) <= limit {
+func truncateUTF8Bytes(value string, limit int) string {
+	if len([]byte(value)) <= limit {
 		return value
 	}
-	return strings.TrimSpace(string(runes[:limit]))
+
+	var builder strings.Builder
+	builder.Grow(limit)
+	for _, runeValue := range value {
+		runeBytes := utf8.RuneLen(runeValue)
+		if runeBytes < 0 || builder.Len()+runeBytes > limit {
+			break
+		}
+		builder.WriteRune(runeValue)
+	}
+	return strings.TrimSpace(builder.String())
 }
