@@ -1,15 +1,6 @@
 services:
   nfetcher:
     image: local/nfetcher:latest
-    build:
-      context: .
-      args:
-        HTTP_PROXY: ${HTTP_PROXY:-}
-        HTTPS_PROXY: ${HTTPS_PROXY:-}
-        NO_PROXY: ${NO_PROXY:-}
-        VERSION: ${NFETCHER_VERSION:-dev}
-        VCS_REF: ${NFETCHER_REVISION:-unknown}
-        BUILD_DATE: ${NFETCHER_BUILD_DATE:-unknown}
     container_name: nfetcher
     restart: unless-stopped
     user: 1000:1000

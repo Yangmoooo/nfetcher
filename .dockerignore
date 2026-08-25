@@ -1,8 +1,0 @@
-.git
-.codex
-.worktrees
-data
-library
-*.cbz
-*.part
-*.official

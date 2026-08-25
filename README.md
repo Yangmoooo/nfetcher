@@ -28,37 +28,24 @@
 在项目根目录执行：
 
 ```bash
-export NFETCHER_VERSION="$(git rev-parse --short HEAD)"
-export NFETCHER_REVISION="$(git rev-parse HEAD)"
-export NFETCHER_BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-docker compose build --pull nfetcher
+docker build -t local/nfetcher:latest .
 ```
-
-镜像仍使用稳定的本地 tag `local/nfetcher:latest`，同时写入 OCI metadata。`NFETCHER_VERSION` 建议使用 Git commit 或正式 tag；没有设置时版本标签为 `dev`。
-
-可以这样确认容器实际使用的镜像，而不是只看 tag：
-
-```bash
-docker inspect nfetcher --format 'container_image={{.Image}}'
-docker image inspect local/nfetcher:latest --format 'image_id={{.Id}} revision={{index .Config.Labels "org.opencontainers.image.revision"}} version={{index .Config.Labels "org.opencontainers.image.version"}}'
-```
-
-`container_image` 和 `image_id` 一致时，说明容器正在使用刚构建的镜像。
 
 默认构建会：
 
 - 以 `linux/amd64` 为目标架构构建二进制
 - 默认使用中国 Go 模块镜像与 Debian APT 镜像源
 
-如果构建阶段需要代理，可以通过环境变量传给 Compose，例如：
+如果构建阶段需要代理，可以直接传 build arg，例如：
 
 ```bash
-export HTTP_PROXY=http://127.0.0.1:17890
-export HTTPS_PROXY=http://127.0.0.1:17890
-docker compose build --pull nfetcher
+docker build \
+  --build-arg HTTP_PROXY=http://127.0.0.1:17890 \
+  --build-arg HTTPS_PROXY=http://127.0.0.1:17890 \
+  -t local/nfetcher:latest .
 ```
 
-其余构建参数同理。
+其余参数同理。
 
 ### 2. 配置 API key
 
@@ -163,7 +150,6 @@ BARK_SOUND=paymentsuccess
 补充说明：
 
 - 文件名会保留 `gallery_id`
-- 标题文件名按 UTF-8 字节数限制在单个 Linux 文件名组件的 `255` 字节以内
 - 同一 `gallery_id` 在整个库里只会保留一份
 - 每个 `.cbz` 保留官方 `ComicInfo.xml`，只补 `StoryArc` 和 `StoryArcNumber`
 - `StoryArc` 使用 `YYYY-MM-DD`
