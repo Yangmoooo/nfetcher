@@ -40,8 +40,8 @@ func TestRewriteCBZPatchesComicInfoAndKeepsEntries(t *testing.T) {
 	if !strings.Contains(comicInfo, "<StoryArcNumber>2</StoryArcNumber>") {
 		t.Fatalf("expected StoryArcNumber patch, got %s", comicInfo)
 	}
-	if strings.Contains(comicInfo, "<AlternateSeries>") {
-		t.Fatalf("expected AlternateSeries to be removed, got %s", comicInfo)
+	if !strings.Contains(comicInfo, "<AlternateSeries>Official Title</AlternateSeries>") {
+		t.Fatalf("expected official AlternateSeries to be preserved, got %s", comicInfo)
 	}
 }
 
