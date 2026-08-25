@@ -1,10 +1,6 @@
 .vscode/
 .worktrees/
 
-.codex
-docs/
-
 data/
-
 .env
 !.env.example
