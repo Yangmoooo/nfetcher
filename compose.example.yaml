@@ -1,6 +1,6 @@
 services:
   nfetcher:
-    image: local/nfetcher:latest
+    image: ghcr.io/yangmoooo/nfetcher:latest
     container_name: nfetcher
     restart: unless-stopped
     # user: 1000:1000
