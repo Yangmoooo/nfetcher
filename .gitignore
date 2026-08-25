@@ -1,6 +1,17 @@
 .vscode/
 .worktrees/
 
-data/
+docs/adr/
+docs/plan/
+CONTEXT.md
+
 .env
 !.env.example
+
+data/
+library/
+output/
+*.cbz
+*.part
+*.official
+.DS_Store

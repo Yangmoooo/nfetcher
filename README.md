@@ -35,14 +35,18 @@ docker build -t local/nfetcher:latest .
 默认构建会：
 
 - 以 `linux/amd64` 为目标架构构建二进制
-- 默认使用中国 Go 模块镜像与 Debian APT 镜像源
+- 默认使用官方 Go 模块代理与 Debian APT 镜像源
 
-如果构建阶段需要代理，可以直接传 build arg，例如：
+如果网络环境需要中国镜像或代理，可以覆盖 build args，例如：
 
 ```bash
 docker build \
   --build-arg HTTP_PROXY=http://127.0.0.1:17890 \
   --build-arg HTTPS_PROXY=http://127.0.0.1:17890 \
+  --build-arg GOPROXY=https://goproxy.cn,direct \
+  --build-arg GOSUMDB=sum.golang.google.cn \
+  --build-arg APT_DEBIAN_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/debian \
+  --build-arg APT_SECURITY_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/debian-security \
   -t local/nfetcher:latest .
 ```
 
