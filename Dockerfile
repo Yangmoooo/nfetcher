@@ -23,6 +23,9 @@ FROM debian:stable-slim
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
+ARG VERSION=dev
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
 ARG APT_DEBIAN_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/debian
 ARG APT_SECURITY_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/debian-security
 ENV HTTP_PROXY=${HTTP_PROXY} \
@@ -46,6 +49,12 @@ RUN if [ -n "${APT_DEBIAN_MIRROR}" ]; then \
 
 WORKDIR /app
 COPY --from=build /out/nfetcher /usr/local/bin/nfetcher
+
+LABEL org.opencontainers.image.title="nfetcher" \
+      org.opencontainers.image.source="https://github.com/Yangmoooo/nfetcher" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 ENV TZ=Asia/Shanghai
 ENTRYPOINT ["nfetcher"]
