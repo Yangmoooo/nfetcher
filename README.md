@@ -52,6 +52,25 @@ docker build \
 
 其余参数同理。
 
+### GHCR 公共发布
+
+公共镜像只在推送语义版本 tag 时发布。Actions 会先运行测试，再构建 `linux/amd64` 镜像并推送：
+
+```bash
+git tag -a v0.1.0 -m "first public release"
+git push origin v0.1.0
+```
+
+发布后的镜像 tag 为：
+
+```text
+ghcr.io/yangmoooo/nfetcher:v0.1.0
+ghcr.io/yangmoooo/nfetcher:latest
+ghcr.io/yangmoooo/nfetcher:sha-<commit>
+```
+
+GHCR workflow 使用 GitHub Actions 内置的 `GITHUB_TOKEN`，不需要把 token 写入仓库。
+
 ### 2. 配置 API key 和 Compose
 
 在 nhentai account settings 中创建 API key，然后将通用 Compose 示例和环境变量模板复制到你的部署目录：
