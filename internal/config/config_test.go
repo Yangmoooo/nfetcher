@@ -63,3 +63,27 @@ func TestLoadReadsNHentaiAuthConfig(t *testing.T) {
 		t.Fatalf("expected download issue interval, got %s", cfg.DownloadIssueInterval)
 	}
 }
+
+func TestLoadRejectsMalformedNumericEnvironment(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		key   string
+		value string
+		want  string
+	}{
+		{name: "integer", key: "SEARCH_PAGE", value: "many", want: "SEARCH_PAGE"},
+		{name: "float", key: "REQUEST_RPS", value: "fast", want: "REQUEST_RPS"},
+		{name: "duration", key: "HTTP_TIMEOUT", value: "soon", want: "HTTP_TIMEOUT"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("TZ", "UTC")
+			t.Setenv("NF_NHENTAI_API_KEY", "test-key")
+			t.Setenv(test.key, test.value)
+
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("expected %s parse error, got %v", test.key, err)
+			}
+		})
+	}
+}

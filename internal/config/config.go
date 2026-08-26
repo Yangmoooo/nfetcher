@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"strconv"
@@ -37,21 +38,54 @@ const (
 )
 
 func Load() (Config, error) {
+	retentionDays, err := getenvInt("RETENTION_DAYS", 7)
+	if err != nil {
+		return Config{}, err
+	}
+	searchPage, err := getenvInt("SEARCH_PAGE", 1)
+	if err != nil {
+		return Config{}, err
+	}
+	galleryConcurrency, err := getenvInt("GALLERY_CONCURRENCY", 3)
+	if err != nil {
+		return Config{}, err
+	}
+	requestRPS, err := getenvFloat("REQUEST_RPS", 4)
+	if err != nil {
+		return Config{}, err
+	}
+	requestBurst, err := getenvInt("REQUEST_BURST", 8)
+	if err != nil {
+		return Config{}, err
+	}
+	downloadIssueInterval, err := getenvDuration("DOWNLOAD_ISSUE_INTERVAL", 30*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	httpTimeout, err := getenvDuration("HTTP_TIMEOUT", 30*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	retryMax, err := getenvInt("RETRY_MAX", 3)
+	if err != nil {
+		return Config{}, err
+	}
+
 	cfg := Config{
 		LibraryDir:            strings.TrimSpace(getenv("NF_LIBRARY_DIR", LibraryDirPath)),
 		RunMode:               getenv("RUN_MODE", "daemon"),
 		ScheduleCron:          getenv("SCHEDULE_CRON", "30 17 * * *"),
 		Timezone:              getenv("TZ", "Asia/Shanghai"),
-		RetentionDays:         getenvInt("RETENTION_DAYS", 7),
+		RetentionDays:         retentionDays,
 		SearchQuery:           getenv("SEARCH_QUERY", "language:chinese"),
 		SearchSort:            getenv("SEARCH_SORT", "popular-today"),
-		SearchPage:            getenvInt("SEARCH_PAGE", 1),
-		GalleryConcurrency:    getenvInt("GALLERY_CONCURRENCY", 3),
-		RequestRPS:            getenvFloat("REQUEST_RPS", 4),
-		RequestBurst:          getenvInt("REQUEST_BURST", 8),
-		DownloadIssueInterval: getenvDuration("DOWNLOAD_ISSUE_INTERVAL", 30*time.Second),
-		HTTPTimeout:           getenvDuration("HTTP_TIMEOUT", 30*time.Second),
-		RetryMax:              getenvInt("RETRY_MAX", 3),
+		SearchPage:            searchPage,
+		GalleryConcurrency:    galleryConcurrency,
+		RequestRPS:            requestRPS,
+		RequestBurst:          requestBurst,
+		DownloadIssueInterval: downloadIssueInterval,
+		HTTPTimeout:           httpTimeout,
+		RetryMax:              retryMax,
 		NHentaiAPIKey:         strings.TrimSpace(getenv("NF_NHENTAI_API_KEY", "")),
 		UserAgent:             strings.TrimSpace(getenv("NFETCHER_USER_AGENT", defaultUserAgent)),
 		BarkBaseURL:           strings.TrimSpace(getenv("NF_BARK_BASE_URL", "")),
@@ -123,44 +157,44 @@ func getenv(key, fallback string) string {
 	return value
 }
 
-func getenvInt(key string, fallback int) int {
+func getenvInt(key string, fallback int) (int, error) {
 	value := os.Getenv(key)
 	if value == "" {
-		return fallback
+		return fallback, nil
 	}
 
-	parsed, err := strconv.Atoi(value)
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
 	if err != nil {
-		return fallback
+		return 0, fmt.Errorf("%s must be a valid integer: %q", key, value)
 	}
 
-	return parsed
+	return parsed, nil
 }
 
-func getenvFloat(key string, fallback float64) float64 {
+func getenvFloat(key string, fallback float64) (float64, error) {
 	value := os.Getenv(key)
 	if value == "" {
-		return fallback
+		return fallback, nil
 	}
 
-	parsed, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return fallback
+	parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+		return 0, fmt.Errorf("%s must be a valid finite number: %q", key, value)
 	}
 
-	return parsed
+	return parsed, nil
 }
 
-func getenvDuration(key string, fallback time.Duration) time.Duration {
+func getenvDuration(key string, fallback time.Duration) (time.Duration, error) {
 	value := os.Getenv(key)
 	if value == "" {
-		return fallback
+		return fallback, nil
 	}
 
-	parsed, err := time.ParseDuration(value)
+	parsed, err := time.ParseDuration(strings.TrimSpace(value))
 	if err != nil {
-		return fallback
+		return 0, fmt.Errorf("%s must be a valid duration: %q", key, value)
 	}
 
-	return parsed
+	return parsed, nil
 }
