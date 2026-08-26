@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -51,11 +50,6 @@ func GalleryFileName(gallery nhentai.Gallery) string {
 
 	title = truncateUTF8Bytes(title, available)
 	return title + suffix
-}
-
-func GalleryDirName(gallery nhentai.Gallery) string {
-	fileName := GalleryFileName(gallery)
-	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
 func truncateUTF8Bytes(value string, limit int) string {

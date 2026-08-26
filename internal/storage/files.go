@@ -6,23 +6,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
-
-func DateDir(root string, now time.Time) string {
-	return filepath.Join(root, now.Format("2006-01-02"))
-}
-
-func FinalGalleryDir(root string, now time.Time, dirName string) string {
-	return filepath.Join(DateDir(root, now), dirName)
-}
 
 func FinalGalleryPath(root, fileName string) string {
 	return filepath.Join(root, fileName)
-}
-
-func StageDir(now time.Time, galleryID int64) string {
-	return filepath.Join(os.TempDir(), "nfetcher", now.Format("2006-01-02"), fmt.Sprintf("%d", galleryID))
 }
 
 func TempArchivePath(finalPath string, galleryID int64) string {
