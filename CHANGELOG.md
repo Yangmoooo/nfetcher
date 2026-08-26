@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Runtime configuration now fails fast when numeric, floating-point, or duration environment variables are malformed.
+
+### Removed
+
+- Removed unused legacy storage and naming helpers.
+
 ## [v0.1.0] - 2026-08-25
 
 ### Added
