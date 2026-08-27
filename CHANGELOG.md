@@ -2,16 +2,13 @@
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-08-27
+
 ### Changed
 
 - Runtime configuration now fails fast when numeric, floating-point, or duration environment variables are malformed.
 - Retention now uses CBZ file modification time instead of ComicInfo `StoryArc` metadata.
-- Komga Read List metadata is optional through `NF_KOMGA_READ_LIST` and disabled by default.
-
-### Upgrade Notes
-
-- Komga users who want date-based Read Lists must set `NF_KOMGA_READ_LIST=true`.
-- Existing CBZ files do not need to be rewritten; retention will use their current file modification times.
+- Komga Read List metadata is optional through `NF_KOMGA_READ_LIST` and disabled by default. Komga users who want date-based Read Lists must set `NF_KOMGA_READ_LIST=true`.
 
 ### Removed
 

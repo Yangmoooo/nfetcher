@@ -23,7 +23,7 @@
 ghcr.io/yangmoooo/nfetcher:latest
 ~~~
 
-生产环境建议固定具体版本，例如 ghcr.io/yangmoooo/nfetcher:v0.1.0。
+生产环境建议固定具体版本，例如 ghcr.io/yangmoooo/nfetcher:v0.2.0。
 
 ### 1. 准备
 
