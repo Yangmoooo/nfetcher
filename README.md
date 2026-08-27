@@ -13,7 +13,7 @@
 - 下载 URL 签发间隔：30s
 - 全局去重：同一 gallery_id 只保留一份归档
 - 输出格式：CBZ，通过官方 download endpoint 下载
-- ComicInfo.xml：保留官方内容，只补 StoryArc / StoryArcNumber
+- ComicInfo.xml：默认保留官方内容；启用 `NF_KOMGA_READ_LIST` 后额外写入 StoryArc / StoryArcNumber
 
 ## 使用发布镜像
 
@@ -28,6 +28,12 @@ ghcr.io/yangmoooo/nfetcher:latest
 ### 1. 准备
 
 将 `compose.example.yaml` 和 `.env.example` 复制到部署目录，编辑配置即可。
+
+`.env` 中的 `NF_NHENTAI_API_KEY` 为必填项；Bark 和 `NF_KOMGA_READ_LIST` 为可选配置。你的 Komga 部署可以设置：
+
+```env
+NF_KOMGA_READ_LIST=true
+```
 
 ### 2. 拉取并检查镜像
 
@@ -76,7 +82,7 @@ latest 是可变 tag；生产环境建议使用 vX.Y.Z。
 ./output/<title> - <gallery-id>.cbz
 ~~~
 
-NF_LIBRARY_DIR 必须和 volume 的容器内目标一致：
+`NF_LIBRARY_DIR` 必须和 volume 的容器内目标一致；retention 使用 CBZ 文件修改时间：
 
 ~~~yaml
 volumes:
@@ -111,7 +117,7 @@ extra_hosts:
   - "host.docker.internal:host-gateway"
 ~~~
 
-Bark 配置写入 .env 中的 NF_BARK_BASE_URL、NF_BARK_DEVICE_KEY 和 NF_BARK_SOUND。
+Bark 配置写入 `.env` 中的 `NF_BARK_BASE_URL`、`NF_BARK_DEVICE_KEY` 和 `NF_BARK_SOUND`。
 
 ## 不使用 Docker
 
