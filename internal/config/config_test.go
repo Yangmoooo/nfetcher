@@ -45,6 +45,7 @@ func TestLoadRequiresNHentaiAPIKey(t *testing.T) {
 func TestLoadReadsNHentaiAuthConfig(t *testing.T) {
 	t.Setenv("TZ", "UTC")
 	t.Setenv("NF_NHENTAI_API_KEY", " test-key ")
+	t.Setenv("NF_KOMGA_READ_LIST", "true")
 	t.Setenv("NFETCHER_USER_AGENT", " nfetcher/test ")
 	t.Setenv("DOWNLOAD_ISSUE_INTERVAL", "2m")
 
@@ -55,6 +56,9 @@ func TestLoadReadsNHentaiAuthConfig(t *testing.T) {
 
 	if cfg.NHentaiAPIKey != "test-key" {
 		t.Fatalf("expected trimmed API key, got %q", cfg.NHentaiAPIKey)
+	}
+	if !cfg.KomgaReadList {
+		t.Fatal("expected Komga read-list metadata to be enabled")
 	}
 	if cfg.UserAgent != "nfetcher/test" {
 		t.Fatalf("expected trimmed user agent, got %q", cfg.UserAgent)
@@ -74,6 +78,7 @@ func TestLoadRejectsMalformedNumericEnvironment(t *testing.T) {
 		{name: "integer", key: "SEARCH_PAGE", value: "many", want: "SEARCH_PAGE"},
 		{name: "float", key: "REQUEST_RPS", value: "fast", want: "REQUEST_RPS"},
 		{name: "duration", key: "HTTP_TIMEOUT", value: "soon", want: "HTTP_TIMEOUT"},
+		{name: "boolean", key: "NF_KOMGA_READ_LIST", value: "sometimes", want: "NF_KOMGA_READ_LIST"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Setenv("TZ", "UTC")

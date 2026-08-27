@@ -12,6 +12,7 @@ import (
 
 type Config struct {
 	LibraryDir            string
+	KomgaReadList         bool
 	RunMode               string
 	ScheduleCron          string
 	Timezone              string
@@ -70,9 +71,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	komgaReadList, err := getenvBool("NF_KOMGA_READ_LIST", false)
+	if err != nil {
+		return Config{}, err
+	}
 
 	cfg := Config{
 		LibraryDir:            strings.TrimSpace(getenv("NF_LIBRARY_DIR", LibraryDirPath)),
+		KomgaReadList:         komgaReadList,
 		RunMode:               getenv("RUN_MODE", "daemon"),
 		ScheduleCron:          getenv("SCHEDULE_CRON", "30 17 * * *"),
 		Timezone:              getenv("TZ", "Asia/Shanghai"),
@@ -196,5 +202,18 @@ func getenvDuration(key string, fallback time.Duration) (time.Duration, error) {
 		return 0, fmt.Errorf("%s must be a valid duration: %q", key, value)
 	}
 
+	return parsed, nil
+}
+
+func getenvBool(key string, fallback bool) (bool, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return false, fmt.Errorf("%s must be a valid boolean: %q", key, value)
+	}
 	return parsed, nil
 }

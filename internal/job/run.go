@@ -148,7 +148,11 @@ func (r *Runner) processGallery(ctx context.Context, storyArc string, queued Que
 	if err := r.DownloadClient.DownloadToFile(ctx, download.URL, downstreamPath); err != nil {
 		return err
 	}
-	if err := archive.RewriteCBZ(downstreamPath, tempPath, storyArc, queued.Rank); err != nil {
+	if r.Config.KomgaReadList {
+		if err := archive.RewriteCBZ(downstreamPath, tempPath, storyArc, queued.Rank); err != nil {
+			return err
+		}
+	} else if err := os.Rename(downstreamPath, tempPath); err != nil {
 		return err
 	}
 
