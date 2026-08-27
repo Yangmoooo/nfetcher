@@ -8,15 +8,16 @@ import (
 	"time"
 )
 
-func TestScanLibraryIndexUsesFilenameIDAndStoryArcDate(t *testing.T) {
+func TestScanLibraryIndexUsesFilenameIDAndModificationDate(t *testing.T) {
 	root := t.TempDir()
 	archivePath := filepath.Join(root, "Alpha - 641153.cbz")
 	writeTestCBZ(t, archivePath, `<?xml version="1.0" encoding="UTF-8"?>
 <ComicInfo>
-  <StoryArc>nhentai-popular | 2026-04-04</StoryArc>
+  <StoryArc>official-story-arc</StoryArc>
   <Web>https://nhentai.net/g/641153/</Web>
-</ComicInfo>
+		</ComicInfo>
 `)
+	setArchiveModTime(t, archivePath, time.Date(2026, 4, 4, 12, 0, 0, 0, time.UTC))
 
 	index, err := ScanLibraryIndex(root)
 	if err != nil {
@@ -32,7 +33,7 @@ func TestScanLibraryIndexUsesFilenameIDAndStoryArcDate(t *testing.T) {
 		t.Fatalf("expected gallery id 641153, got %#v", archive)
 	}
 	if archive.FetchedDate != "2026-04-04" {
-		t.Fatalf("expected fetched date 2026-04-04, got %#v", archive)
+		t.Fatalf("expected modification date 2026-04-04, got %#v", archive)
 	}
 
 	paths := index.ExistingGalleryPaths()
@@ -46,10 +47,11 @@ func TestScanLibraryIndexFallsBackToComicInfoWeb(t *testing.T) {
 	archivePath := filepath.Join(root, "No ID Here.cbz")
 	writeTestCBZ(t, archivePath, `<?xml version="1.0" encoding="UTF-8"?>
 <ComicInfo>
-  <StoryArc>2026-04-05</StoryArc>
+  <StoryArc>official-story-arc</StoryArc>
   <Web>https://nhentai.net/g/641154/</Web>
-</ComicInfo>
+		</ComicInfo>
 `)
+	setArchiveModTime(t, archivePath, time.Date(2026, 4, 5, 12, 0, 0, 0, time.UTC))
 
 	index, err := ScanLibraryIndex(root)
 	if err != nil {
@@ -70,13 +72,13 @@ func TestCleanupExpiredFromIndex(t *testing.T) {
 
 	writeTestCBZ(t, oldPath, `<?xml version="1.0" encoding="UTF-8"?>
 <ComicInfo>
-  <StoryArc>nhentai-popular | 2026-04-01</StoryArc>
+  <StoryArc>recent-official-arc</StoryArc>
   <Web>https://nhentai.net/g/641155/</Web>
 </ComicInfo>
 `)
 	writeTestCBZ(t, keepPath, `<?xml version="1.0" encoding="UTF-8"?>
 <ComicInfo>
-  <StoryArc>popular | 2026-04-08</StoryArc>
+  <StoryArc>old-official-arc</StoryArc>
   <Web>https://nhentai.net/g/641156/</Web>
 </ComicInfo>
 `)
@@ -85,6 +87,9 @@ func TestCleanupExpiredFromIndex(t *testing.T) {
   <Web>https://nhentai.net/g/641157/</Web>
 </ComicInfo>
 `)
+	setArchiveModTime(t, oldPath, time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC))
+	setArchiveModTime(t, keepPath, time.Date(2026, 4, 8, 12, 0, 0, 0, time.UTC))
+	setArchiveModTime(t, unknownPath, time.Date(2026, 4, 8, 12, 0, 0, 0, time.UTC))
 
 	index, err := ScanLibraryIndex(root)
 	if err != nil {
@@ -108,6 +113,13 @@ func TestCleanupExpiredFromIndex(t *testing.T) {
 	}
 	if _, err := os.Stat(unknownPath); err != nil {
 		t.Fatalf("expected archive without date kept, stat err=%v", err)
+	}
+}
+
+func setArchiveModTime(t *testing.T, path string, modTime time.Time) {
+	t.Helper()
+	if err := os.Chtimes(path, modTime, modTime); err != nil {
+		t.Fatalf("set archive modification time: %v", err)
 	}
 }
 

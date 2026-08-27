@@ -26,8 +26,7 @@ type LibraryArchive struct {
 }
 
 type archiveComicInfo struct {
-	Web      string `xml:"Web"`
-	StoryArc string `xml:"StoryArc"`
+	Web string `xml:"Web"`
 }
 
 func ScanLibraryIndex(root string) (LibraryIndex, error) {
@@ -61,6 +60,11 @@ func ScanLibraryIndex(root string) (LibraryIndex, error) {
 		}
 
 		archive := LibraryArchive{Path: path}
+		fileInfo, infoErr := entry.Info()
+		if infoErr != nil {
+			return infoErr
+		}
+		archive.FetchedDate = fileInfo.ModTime().Format(fetchedDateLayout)
 		if galleryID, ok := GalleryIDFromPath(path); ok {
 			archive.GalleryID = galleryID
 		}
@@ -71,9 +75,7 @@ func ScanLibraryIndex(root string) (LibraryIndex, error) {
 				archive.GalleryID = galleryID
 			}
 		}
-		archive.FetchedDate = FetchedDateFromStoryArc(comicInfo.StoryArc)
-
-		if archive.GalleryID == 0 && archive.FetchedDate == "" {
+		if archive.GalleryID == 0 {
 			return nil
 		}
 
@@ -152,24 +154,6 @@ func GalleryIDFromWeb(raw string) (int64, bool) {
 	}
 
 	return 0, false
-}
-
-func FetchedDateFromStoryArc(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-
-	parts := strings.Split(raw, "|")
-	if len(parts) == 0 {
-		return ""
-	}
-
-	date := strings.TrimSpace(parts[len(parts)-1])
-	if _, err := time.Parse(fetchedDateLayout, date); err != nil {
-		return ""
-	}
-	return date
 }
 
 func readArchiveComicInfo(path string) (archiveComicInfo, error) {
