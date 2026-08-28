@@ -72,12 +72,13 @@ func TestWaitForDownloadIssueSlotCanBeDisabled(t *testing.T) {
 
 func TestProcessGalleryOnlyAddsKomgaReadListMetadataWhenEnabled(t *testing.T) {
 	for _, test := range []struct {
-		name          string
-		komgaReadList bool
-		wantStoryArc  string
-		wantArcNumber string
+		name                string
+		komgaReadList       bool
+		wantStoryArc        string
+		wantArcNumber       string
+		wantAlternateSeries bool
 	}{
-		{name: "generic", wantStoryArc: "official-story-arc", wantArcNumber: "9"},
+		{name: "generic", wantStoryArc: "official-story-arc", wantArcNumber: "9", wantAlternateSeries: true},
 		{name: "komga", komgaReadList: true, wantStoryArc: "2026-08-27", wantArcNumber: "4"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -113,6 +114,10 @@ func TestProcessGalleryOnlyAddsKomgaReadListMetadataWhenEnabled(t *testing.T) {
 			if !strings.Contains(comicInfo, "<StoryArcNumber>"+test.wantArcNumber+"</StoryArcNumber>") {
 				t.Fatalf("expected StoryArcNumber %q, got %s", test.wantArcNumber, comicInfo)
 			}
+			hasAlternateSeries := strings.Contains(comicInfo, "<AlternateSeries>")
+			if hasAlternateSeries != test.wantAlternateSeries {
+				t.Fatalf("expected AlternateSeries present=%t, got %s", test.wantAlternateSeries, comicInfo)
+			}
 		})
 	}
 }
@@ -125,7 +130,7 @@ func testCBZFixture(t *testing.T) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := comicInfo.Write([]byte(`<ComicInfo><StoryArc>official-story-arc</StoryArc><StoryArcNumber>9</StoryArcNumber></ComicInfo>`)); err != nil {
+	if _, err := comicInfo.Write([]byte(`<ComicInfo><StoryArc>official-story-arc</StoryArc><StoryArcNumber>9</StoryArcNumber><AlternateSeries>Official Title</AlternateSeries></ComicInfo>`)); err != nil {
 		t.Fatal(err)
 	}
 	page, err := writer.Create("001.jpg")

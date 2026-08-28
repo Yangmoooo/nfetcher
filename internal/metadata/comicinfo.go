@@ -16,6 +16,10 @@ func PatchComicInfo(data []byte, storyArc string, rank int) ([]byte, error) {
 	}
 
 	text := string(data)
+	for _, name := range []string{"AlternateSeries", "AlternateNumber", "AlternateCount"} {
+		text = removeElement(text, name)
+	}
+
 	var found bool
 	text, found = replaceElementText(text, "StoryArc", storyArc)
 	if !found {
@@ -85,6 +89,12 @@ func replaceElementText(text, name, value string) (string, bool) {
 
 	patched := segment[:startEnd+1] + escapeText(value) + segment[endStart:]
 	return text[:location[0]] + patched + text[location[1]:], true
+}
+
+func removeElement(text, name string) string {
+	quoted := regexp.QuoteMeta(name)
+	pattern := regexp.MustCompile(`(?s)\s*<` + quoted + `(?:\s[^>]*)?(?:/>|>.*?</` + quoted + `>)`)
+	return pattern.ReplaceAllString(text, "")
 }
 
 func appendElement(text, name, value string) (string, error) {
