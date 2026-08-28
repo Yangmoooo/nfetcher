@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [v0.2.1] - 2026-08-29
+
+### Changed
+
+- Enabling `NF_KOMGA_READ_LIST` now strips ComicInfo `AlternateSeries`, `AlternateNumber`, and `AlternateCount` so Komga only creates date-based Read Lists.
+
 ## [v0.2.0] - 2026-08-27
 
 ### Changed

@@ -13,7 +13,7 @@
 - 下载 URL 签发间隔：30s
 - 全局去重：同一 gallery_id 只保留一份归档
 - 输出格式：CBZ，通过官方 download endpoint 下载
-- ComicInfo.xml：默认保留官方内容；启用 `NF_KOMGA_READ_LIST` 后额外写入 StoryArc / StoryArcNumber
+- ComicInfo.xml：默认保留官方内容；启用 `NF_KOMGA_READ_LIST` 后写入 StoryArc / StoryArcNumber，并去掉 AlternateSeries / AlternateNumber / AlternateCount
 
 ## 使用发布镜像
 
@@ -23,7 +23,7 @@
 ghcr.io/yangmoooo/nfetcher:latest
 ~~~
 
-生产环境建议固定具体版本，例如 ghcr.io/yangmoooo/nfetcher:v0.2.0。
+生产环境建议固定具体版本，例如 ghcr.io/yangmoooo/nfetcher:vX.Y.Z。
 
 ### 1. 准备
 
@@ -99,6 +99,8 @@ volumes:
 ~~~
 
 Komga 库可以指向 /komga/library/nhentai，并在设置中启用 One-Shots 目录 _oneshots。
+
+`NF_KOMGA_READ_LIST=true` 时，nfetcher 用当天日期作为 `StoryArc`、搜索排名作为 `StoryArcNumber`，让 Komga 生成按日期排序的 Read List。同时会去掉官方 ComicInfo 里的 `AlternateSeries` / `AlternateNumber` / `AlternateCount`，否则 Komga 会把每本的日文标题也建成独立 Read List。已存在的 CBZ 不会被自动改写。
 
 ## 代理与 Bark
 
