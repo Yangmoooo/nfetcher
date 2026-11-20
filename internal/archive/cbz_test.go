@@ -2,6 +2,7 @@ package archive
 
 import (
 	"archive/zip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -42,6 +43,62 @@ func TestRewriteCBZPatchesComicInfoAndKeepsEntries(t *testing.T) {
 	}
 	if strings.Contains(comicInfo, "<AlternateSeries>") {
 		t.Fatalf("expected AlternateSeries to be removed, got %s", comicInfo)
+	}
+}
+
+func TestRewriteCBZCopiesPageWithoutCRCValidation(t *testing.T) {
+	var input strings.Builder
+	writer := zip.NewWriter(&input)
+	comicInfo, err := writer.Create("ComicInfo.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(comicInfo, "<ComicInfo><Title>Official</Title></ComicInfo>"); err != nil {
+		t.Fatal(err)
+	}
+
+	const data = "image-data"
+	// Deliberately keep an incorrect CRC on an otherwise readable ZIP entry.
+	page, err := writer.CreateRaw(&zip.FileHeader{
+		Name:               "001.jpg",
+		Method:             zip.Store,
+		CRC32:              1,
+		CompressedSize64:   uint64(len(data)),
+		UncompressedSize64: uint64(len(data)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(page, data); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	srcPath := filepath.Join(dir, "official.cbz")
+	dstPath := filepath.Join(dir, "patched.cbz")
+	if err := os.WriteFile(srcPath, []byte(input.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RewriteCBZ(srcPath, dstPath, "2026-05-06", 2); err != nil {
+		t.Fatalf("rewrite should not validate page CRC: %v", err)
+	}
+
+	archive, err := zip.OpenReader(dstPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	entry, err := archive.Open("001.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer entry.Close()
+	got, err := io.ReadAll(entry)
+	if string(got) != data || !errors.Is(err, zip.ErrChecksum) {
+		t.Fatalf("expected original page data and checksum error, got %q, %v", got, err)
 	}
 }
 

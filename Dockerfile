@@ -1,4 +1,4 @@
-FROM golang:1.25 AS build
+FROM golang:1.27.4 AS build
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY

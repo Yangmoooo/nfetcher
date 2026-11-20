@@ -35,7 +35,8 @@ func RewriteCBZ(srcPath, dstPath, storyArc string, rank int) error {
 			continue
 		}
 
-		if err := copyEntry(zipWriter, file); err != nil {
+		// Copy all other entries as-is, without decompressing or checking their CRC.
+		if err := zipWriter.Copy(file); err != nil {
 			_ = zipWriter.Close()
 			return err
 		}
@@ -78,25 +79,5 @@ func copyPatchedComicInfo(zipWriter *zip.Writer, file *zip.File, storyArc string
 		return err
 	}
 	_, err = writer.Write(patched)
-	return err
-}
-
-func copyEntry(zipWriter *zip.Writer, file *zip.File) error {
-	writer, err := zipWriter.CreateHeader(&file.FileHeader)
-	if err != nil {
-		return err
-	}
-
-	if file.FileInfo().IsDir() {
-		return nil
-	}
-
-	reader, err := file.Open()
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-
-	_, err = io.Copy(writer, reader)
 	return err
 }

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [v0.2.2] - 2026-11-20
+
+### Changed
+
+- With `NF_KOMGA_READ_LIST` enabled, rewrite only `ComicInfo.xml` and copy all other CBZ entries without recompression or per-entry CRC validation.
+- Require Go 1.26.0 or later to build from source. CI and release images use Go 1.27.4.
+
 ## [v0.2.1] - 2026-08-29
 
 ### Changed
